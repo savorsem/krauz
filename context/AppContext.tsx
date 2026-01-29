@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { FeedPost, CameoProfile, GenerateVideoParams, PostStatus } from '../types';
+import { FeedPost, CameoProfile, PostStatus } from '../types';
 
 // Sample video URLs for the feed
 const sampleVideos: FeedPost[] = [
@@ -12,7 +12,7 @@ const sampleVideos: FeedPost[] = [
     videoUrl: 'https://storage.googleapis.com/sideprojects-asronline/veo-cameos/cameo-alisa.mp4',
     username: 'alisa_fortin',
     avatarUrl: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Maria',
-    description: 'Sipping coffee at a parisian cafe',
+    description: 'Пьет кофе в парижском кафе',
     modelTag: 'Veo Fast',
     status: PostStatus.SUCCESS,
   },
@@ -21,7 +21,7 @@ const sampleVideos: FeedPost[] = [
     videoUrl: 'https://storage.googleapis.com/sideprojects-asronline/veo-cameos/cameo-omar.mp4',
     username: 'osanseviero',
     avatarUrl: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Emery',
-    description: 'At a llama petting zoo',
+    description: 'В контактном зоопарке с ламами',
     modelTag: 'Veo Fast',
     status: PostStatus.SUCCESS,
   },
@@ -30,7 +30,7 @@ const sampleVideos: FeedPost[] = [
     videoUrl: 'https://storage.googleapis.com/sideprojects-asronline/veo-cameos/cameo-ammaar.mp4',
     username: 'ammaar',
     avatarUrl: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Kimberly',
-    description: 'At a red carpet ceremony',
+    description: 'На красной дорожке церемонии',
     modelTag: 'Veo',
     status: PostStatus.SUCCESS,
   },
@@ -39,7 +39,7 @@ const sampleVideos: FeedPost[] = [
     videoUrl: 'https://storage.googleapis.com/sideprojects-asronline/veo-cameos/cameo-logan.mp4',
     username: 'OfficialLoganK',
     avatarUrl: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Jocelyn',
-    description: 'Vibe coding on a mountain.',
+    description: 'Кодит на вершине горы',
     modelTag: 'Veo Fast',
     status: PostStatus.SUCCESS,
   },
@@ -48,7 +48,7 @@ const sampleVideos: FeedPost[] = [
     videoUrl: 'https://storage.googleapis.com/sideprojects-asronline/veo-cameos/cameo-kat.mp4',
     username: 'kat_kampf',
     avatarUrl: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Jameson',
-    description: 'Exploring a majestic temple in a forest.',
+    description: 'Исследует величественный храм в лесу',
     modelTag: 'Veo Fast',
     status: PostStatus.SUCCESS,
   },
@@ -57,7 +57,7 @@ const sampleVideos: FeedPost[] = [
     videoUrl: 'https://storage.googleapis.com/sideprojects-asronline/veo-cameos/cameo-josh.mp4',
     username: 'joshwoodward',
     avatarUrl: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Jade',
-    description: 'On the Google Keynote stage.',
+    description: 'На сцене Google Keynote',
     modelTag: 'Veo Fast',
     status: PostStatus.SUCCESS,
   },
@@ -81,26 +81,22 @@ export interface ChatMessage {
 }
 
 interface AppContextType {
-  // Navigation
-  currentPage: string;
-  setCurrentPage: (page: string) => void;
+  // Current panel (0 = menu, 1 = main, 2 = chat)
+  currentPanel: number;
+  setCurrentPanel: (panel: number) => void;
   
-  // Panel states
-  isPlanPanelOpen: boolean;
-  setIsPlanPanelOpen: (open: boolean) => void;
-  isChatPanelOpen: boolean;
-  setIsChatPanelOpen: (open: boolean) => void;
+  // Menu page selection
+  menuPage: string | null;
+  setMenuPage: (page: string | null) => void;
   
   // Feed data
   feed: FeedPost[];
   setFeed: React.Dispatch<React.SetStateAction<FeedPost[]>>;
   updateFeedPost: (id: string, updates: Partial<FeedPost>) => void;
   
-  // Avatars
+  // Avatars (user uploaded only)
   avatars: CameoProfile[];
   setAvatars: React.Dispatch<React.SetStateAction<CameoProfile[]>>;
-  selectedAvatar: CameoProfile | null;
-  setSelectedAvatar: (avatar: CameoProfile | null) => void;
   
   // Knowledge base
   knowledgeItems: KnowledgeItem[];
@@ -123,21 +119,11 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const defaultAvatars: CameoProfile[] = [
-  { id: '1', name: 'Alex', imageUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=asr&backgroundColor=transparent' },
-  { id: '2', name: 'Sam', imageUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=skirano&backgroundColor=transparent' },
-  { id: '3', name: 'Jordan', imageUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=lc99&backgroundColor=transparent' },
-  { id: '4', name: 'Taylor', imageUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=sama&backgroundColor=transparent' },
-  { id: '5', name: 'Morgan', imageUrl: 'https://api.dicebear.com/7.x/avataaars/png?seed=justinem&backgroundColor=transparent' },
-];
-
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentPage, setCurrentPage] = useState('main');
-  const [isPlanPanelOpen, setIsPlanPanelOpen] = useState(false);
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [currentPanel, setCurrentPanel] = useState(1); // Start at main (center)
+  const [menuPage, setMenuPage] = useState<string | null>(null);
   const [feed, setFeed] = useState<FeedPost[]>(sampleVideos);
-  const [avatars, setAvatars] = useState<CameoProfile[]>(defaultAvatars);
-  const [selectedAvatar, setSelectedAvatar] = useState<CameoProfile | null>(null);
+  const [avatars, setAvatars] = useState<CameoProfile[]>([]); // No default avatars
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [errorToast, setErrorToast] = useState<string | null>(null);
@@ -178,19 +164,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      currentPage,
-      setCurrentPage,
-      isPlanPanelOpen,
-      setIsPlanPanelOpen,
-      isChatPanelOpen,
-      setIsChatPanelOpen,
+      currentPanel,
+      setCurrentPanel,
+      menuPage,
+      setMenuPage,
       feed,
       setFeed,
       updateFeedPost,
       avatars,
       setAvatars,
-      selectedAvatar,
-      setSelectedAvatar,
       knowledgeItems,
       addKnowledgeItem,
       removeKnowledgeItem,

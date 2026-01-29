@@ -56,3 +56,17 @@
     color: hsl(var(--foreground));
   }
 }
+
+/* Hide scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth transitions for theme */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
