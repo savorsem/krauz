@@ -65,9 +65,9 @@ const VideoCard: React.FC<{ post: FeedPost }> = ({ post }) => {
     switch (status) {
       case PostStatus.GENERATING:
         return (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-6 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted p-6 text-center">
             {/* Background pulsing effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-950 animate-pulse"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-muted to-background animate-pulse"></div>
             
             {/* Reference Image if available */}
             {post.referenceImageBase64 && (
@@ -78,24 +78,24 @@ const VideoCard: React.FC<{ post: FeedPost }> = ({ post }) => {
 
             <div className="relative z-10 flex flex-col items-center gap-4">
               <div className="relative">
-                <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                <VeoLogo className="w-5 h-5 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                <div className="w-12 h-12 border-2 border-muted-foreground/20 border-t-foreground rounded-full animate-spin"></div>
+                <VeoLogo className="w-5 h-5 text-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
               </div>
               <div>
-                <p className="text-sm font-bold uppercase tracking-widest text-white mb-1 font-bogle animate-pulse">Generating Scene</p>
-                <p className="text-xs text-gray-400 line-clamp-2 px-2 max-w-[200px] mx-auto">"{post.description}"</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-foreground mb-1 font-bogle animate-pulse">Generating Scene</p>
+                <p className="text-xs text-muted-foreground line-clamp-2 px-2 max-w-[200px] mx-auto">"{post.description}"</p>
               </div>
             </div>
              {/* Overlay Gradient for readability */}
-             <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+             <div className="absolute inset-0 bg-background/30 pointer-events-none" />
           </div>
         );
       case PostStatus.ERROR:
         return (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 border border-red-500/30 p-6 text-center">
-            <AlertCircle className="w-10 h-10 text-red-500 mb-3 opacity-80" />
-            <p className="text-sm font-bold uppercase tracking-widest text-white mb-1 font-bogle">Generation Failed</p>
-            <p className="text-xs text-red-300 line-clamp-3 px-2">{post.errorMessage || "An unexpected error occurred."}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/80 border border-destructive/30 p-6 text-center">
+            <AlertCircle className="w-10 h-10 text-destructive mb-3 opacity-80" />
+            <p className="text-sm font-bold uppercase tracking-widest text-foreground mb-1 font-bogle">Generation Failed</p>
+            <p className="text-xs text-destructive line-clamp-3 px-2">{post.errorMessage || "An unexpected error occurred."}</p>
           </div>
         );
       case PostStatus.SUCCESS:
@@ -116,13 +116,13 @@ const VideoCard: React.FC<{ post: FeedPost }> = ({ post }) => {
 
   return (
     <div
-      className="relative w-full h-full rounded-3xl overflow-hidden bg-gray-900/40 border border-white/5 aspect-[9/16] group shadow-2xl shadow-black/50 ring-1 ring-black/50 flex flex-col animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500"
+      className="relative w-full h-full rounded-3xl overflow-hidden bg-card border border-border aspect-[9/16] group shadow-2xl flex flex-col animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {status === PostStatus.SUCCESS && post.status /* Check explicitly for new posts */ && (
-        <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-black flex items-center gap-1 shadow-[0_2px_10px_rgba(0,0,0,0.2)]">
-            <Sparkles className="w-3 h-3 text-black" />
+        <div className="absolute top-4 left-4 z-20 bg-primary backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-primary-foreground flex items-center gap-1 shadow-lg">
+            <Sparkles className="w-3 h-3" />
             New
         </div>
       )}
@@ -138,19 +138,19 @@ const VideoCard: React.FC<{ post: FeedPost }> = ({ post }) => {
       )}
 
       {/* Model Badge */}
-      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-black/30 border border-white/10 backdrop-blur-xl px-2.5 py-1.5 rounded-full text-xs font-medium text-white/90 pointer-events-none shadow-lg z-20">
+      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-background/30 border border-border backdrop-blur-xl px-2.5 py-1.5 rounded-full text-xs font-medium text-foreground/90 pointer-events-none shadow-lg z-20">
         <VeoLogo className="w-3 h-3 opacity-80" />
         {post.modelTag}
       </div>
 
       {/* Content Overlay */}
-      <div className={`absolute bottom-0 left-0 w-full p-5 flex items-end justify-between z-20 pt-16 bg-gradient-to-t from-black via-black/50 to-transparent transition-opacity duration-300 ${status !== PostStatus.SUCCESS ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`absolute bottom-0 left-0 w-full p-5 flex items-end justify-between z-20 pt-16 bg-gradient-to-t from-background via-background/50 to-transparent transition-opacity duration-300 ${status !== PostStatus.SUCCESS ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex-1 mr-4 pointer-events-none">
           <div className="flex items-center gap-2.5 mb-2">
-            <img src={post.avatarUrl} alt={post.username} className="w-8 h-8 rounded-full border border-white/20 shadow-md" />
-            <span className="font-semibold text-sm text-white drop-shadow-md backdrop-blur-[1px]">{post.username}</span>
+            <img src={post.avatarUrl} alt={post.username} className="w-8 h-8 rounded-full border border-border shadow-md" />
+            <span className="font-semibold text-sm text-foreground drop-shadow-md backdrop-blur-[1px]">{post.username}</span>
           </div>
-          <p className="text-sm text-gray-200 line-clamp-2 drop-shadow-md font-light leading-snug opacity-90 group-hover:opacity-100 transition-opacity">{post.description}</p>
+          <p className="text-sm text-muted-foreground line-clamp-2 drop-shadow-md font-light leading-snug opacity-90 group-hover:opacity-100 transition-opacity">{post.description}</p>
         </div>
 
         {/* Actions Sidebar */}
@@ -158,7 +158,7 @@ const VideoCard: React.FC<{ post: FeedPost }> = ({ post }) => {
           <div className="flex flex-col gap-3 items-center shrink-0 pointer-events-auto">
             <button 
               onClick={handleDownload}
-              className="p-3 rounded-full bg-white/10 border border-white/20 backdrop-blur-xl hover:bg-white/20 transition-all text-white shadow-[0_4px_12px_rgba(0,0,0,0.3)] group-active:scale-90 hover:scale-105 hover:border-white/40"
+              className="p-3 rounded-full bg-card/50 border border-border backdrop-blur-xl hover:bg-card transition-all text-foreground shadow-lg group-active:scale-90 hover:scale-105"
               title="Download Video"
             >
               <Download className="w-5 h-5" />

@@ -271,17 +271,17 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
       
       <div
         ref={barRef}
-        className="w-full max-w-2xl mx-4 bg-neutral-900/90 border border-white/10 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.7)] overflow-hidden pointer-events-auto relative ring-1 ring-white/5 group rounded-[32px] transition-all duration-300"
+        className="w-full max-w-2xl mx-4 bg-card/90 border border-border backdrop-blur-2xl shadow-2xl overflow-hidden pointer-events-auto relative group rounded-[32px] transition-all duration-300"
       >
         {isExpanded && (
           <div
             className="px-3 pt-3 animate-in fade-in slide-in-from-top-2 duration-300"
           >
               {/* Cameos section */}
-              <div className="bg-black/40 rounded-2xl p-2 border border-white/5 shadow-inner">
-                <div className="flex items-center gap-2 mb-1 px-2 text-white/70 pt-1">
+              <div className="bg-muted/50 rounded-2xl p-2 border border-border shadow-inner">
+                <div className="flex items-center gap-2 mb-1 px-2 text-muted-foreground pt-1">
                     <User className="w-3.5 h-3.5" />
-                    <p className="text-[10px] font-bold uppercase tracking-wider font-sans text-white/50">Select Face</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider font-sans text-muted-foreground">Select Face</p>
                 </div>
                 
                 {/* Added padding (py-2 px-2) and negative margin to accommodate scaled & ringed items without clipping */}
@@ -289,7 +289,7 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
                   {/* Upload button - Simpler dashed design */}
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className={`w-12 h-12 shrink-0 rounded-xl border-2 border-dashed border-white/20 hover:border-white/80 bg-white/0 hover:bg-white/5 text-white/40 hover:text-white flex items-center justify-center transition-all duration-300 relative group/upload hover:scale-105 hover:shadow-[0_0_15px_rgba(255,255,255,0.15)]`}
+                    className={`w-12 h-12 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-all duration-300 relative group/upload hover:scale-105`}
                     title="Upload your photo"
                   >
                     <Plus className="w-6 h-6 transition-transform group-hover/upload:rotate-90 duration-300" />
@@ -297,20 +297,20 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
                   </button>
                   
                   {/* Divider */}
-                  <div className="w-px h-6 bg-white/10 shrink-0 rounded-full"></div>
+                  <div className="w-px h-6 bg-border shrink-0 rounded-full"></div>
 
                   {profiles.map((profile) => (
                     <button
                       key={profile.id}
                       onClick={() => handleCameoSelect(profile.id)}
-                      className={`w-12 h-12 shrink-0 rounded-xl overflow-hidden transition-all duration-300 relative group/cameo bg-black/50 ${
+                      className={`w-12 h-12 shrink-0 rounded-xl overflow-hidden transition-all duration-300 relative group/cameo bg-muted ${
                         selectedCameoId === profile.id
-                          ? 'ring-2 ring-white ring-offset-2 ring-offset-black/80 scale-105 opacity-100 z-10 shadow-lg'
-                          : 'opacity-60 hover:opacity-100 hover:scale-105 grayscale hover:grayscale-0 border border-white/5'
+                          ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 opacity-100 z-10 shadow-lg'
+                          : 'opacity-60 hover:opacity-100 hover:scale-105 grayscale hover:grayscale-0 border border-border'
                       }`}
                     >
                       <img src={profile.imageUrl} alt={profile.name} className={`w-full h-full object-cover ${profile.id.startsWith('user-') ? '' : 'p-0.5'}`} />
-                      {selectedCameoId !== profile.id && <div className="absolute inset-0 bg-black/20 group-hover/cameo:bg-transparent transition-colors"></div>}
+                      {selectedCameoId !== profile.id && <div className="absolute inset-0 bg-background/20 group-hover/cameo:bg-transparent transition-colors"></div>}
                     </button>
                   ))}
                 </div>
@@ -326,7 +326,7 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
                     setTimeout(() => inputRef.current?.focus(), 100);
                 }
             }}
-            className={`w-11 h-11 flex items-center justify-center rounded-full transition-all duration-300 shrink-0 shadow-lg ${isExpanded ? 'bg-white/10 text-white hover:bg-white/20 border border-white/10 rotate-45' : 'text-white bg-gradient-to-br from-indigo-500 to-purple-600 hover:scale-105 shadow-[0_0_15px_rgba(99,102,241,0.5)]'}`}
+            className={`w-11 h-11 flex items-center justify-center rounded-full transition-all duration-300 shrink-0 shadow-lg ${isExpanded ? 'bg-muted text-foreground hover:bg-muted/80 border border-border rotate-45' : 'text-primary-foreground bg-primary hover:scale-105'}`}
           >
             <Plus className={`w-5 h-5`} />
           </button>
@@ -338,11 +338,11 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
                 key={examplePrompts[promptIndex]}
                 className="absolute inset-y-0 left-0 flex items-center w-full pointer-events-none pr-2 animate-in fade-in slide-in-from-bottom-1 duration-300"
               >
-                <span className="text-white/40 text-lg font-light font-sans tracking-wide truncate flex-grow">
+                <span className="text-muted-foreground text-lg font-light font-sans tracking-wide truncate flex-grow">
                   {examplePrompts[promptIndex]}
                 </span>
                 <button
-                  className="ml-2 px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-[10px] font-mono text-white/50 uppercase flex items-center gap-1 pointer-events-auto cursor-pointer hover:bg-white/10 hover:text-white/70 transition-colors animate-in fade-in zoom-in-90 duration-300 delay-150"
+                  className="ml-2 px-1.5 py-0.5 rounded border border-border bg-muted text-[10px] font-mono text-muted-foreground uppercase flex items-center gap-1 pointer-events-auto cursor-pointer hover:bg-muted/80 hover:text-foreground transition-colors animate-in fade-in zoom-in-90 duration-300 delay-150"
                   onClick={fillPrompt}
                 >
                   Tab
@@ -362,7 +362,7 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
               onKeyDown={handleKeyDown}
               rows={1}
               placeholder={!isExpanded ? "Describe the scene..." : ""}
-              className={`w-full bg-transparent text-white outline-none resize-none overflow-hidden py-0.5 leading-relaxed text-lg font-light font-sans tracking-wide relative z-10 placeholder:text-white/40 ${prompt === '' && isExpanded ? 'opacity-0 focus:opacity-100' : ''}`}
+              className={`w-full bg-transparent text-foreground outline-none resize-none overflow-hidden py-0.5 leading-relaxed text-lg font-light font-sans tracking-wide relative z-10 placeholder:text-muted-foreground ${prompt === '' && isExpanded ? 'opacity-0 focus:opacity-100' : ''}`}
               style={{ height: '28px' }}
             />
           </div>
@@ -371,9 +371,9 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
             {selectedCameoId && selectedProfile && (
                 <div
                     key="cameo-badge"
-                    className="overflow-hidden flex items-center justify-center h-11 px-1.5 bg-white/10 border border-white/10 backdrop-blur-md text-white rounded-xl animate-in fade-in zoom-in-90 duration-300"
+                    className="overflow-hidden flex items-center justify-center h-11 px-1.5 bg-muted border border-border backdrop-blur-md rounded-xl animate-in fade-in zoom-in-90 duration-300"
                 >
-                    <img src={selectedProfile.imageUrl} alt={selectedProfile.name} className="w-8 h-8 rounded-lg object-cover bg-black/50" />
+                    <img src={selectedProfile.imageUrl} alt={selectedProfile.name} className="w-8 h-8 rounded-lg object-cover bg-muted" />
                 </div>
             )}
             
@@ -382,8 +382,8 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
               disabled={!prompt.trim()}
               className={`w-11 h-11 flex items-center justify-center rounded-full transition-all duration-300 ${
                 prompt.trim()
-                  ? 'bg-white text-black hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.6)]'
-                  : 'bg-white/5 text-white/30 border border-white/5 cursor-not-allowed'
+                  ? 'bg-primary text-primary-foreground hover:scale-105 shadow-lg'
+                  : 'bg-muted text-muted-foreground border border-border cursor-not-allowed'
               }`}
             >
               <ArrowUp className="w-5 h-5" />
