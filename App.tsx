@@ -3,7 +3,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { AnimatePresence, motion } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
 import ApiKeyDialog from './components/ApiKeyDialog';
 import BottomPromptBar from './components/BottomPromptBar';
@@ -161,20 +160,14 @@ const App: React.FC = () => {
       )}
       
       {/* Error Toast */}
-      <AnimatePresence>
-        {errorToast && (
-            <motion.div 
-                initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 24, scale: 1 }}
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="fixed top-0 left-1/2 -translate-x-1/2 z-[60] bg-neutral-900/80 border border-white/10 text-white px-5 py-3 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl max-w-md text-center text-sm font-medium flex items-center gap-3"
-            >
-                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse"></div>
-                {errorToast}
-            </motion.div>
-        )}
-      </AnimatePresence>
+      {errorToast && (
+          <div 
+              className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] bg-neutral-900/80 border border-white/10 text-white px-5 py-3 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl max-w-md text-center text-sm font-medium flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300"
+          >
+              <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse"></div>
+              {errorToast}
+          </div>
+      )}
       
       <main className="flex-1 h-full relative overflow-y-auto overflow-x-hidden no-scrollbar bg-black">
         {/* Ambient background light */}
@@ -205,11 +198,9 @@ const App: React.FC = () => {
         {/* Video Grid */}
         <div className="w-full max-w-[1600px] mx-auto p-4 md:p-6 pb-48 relative z-10">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-            <AnimatePresence initial={false}>
-              {feed.map((post) => (
-                <VideoCard key={post.id} post={post} />
-              ))}
-            </AnimatePresence>
+            {feed.map((post) => (
+              <VideoCard key={post.id} post={post} />
+            ))}
           </div>
         </div>
       </main>

@@ -3,7 +3,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { AnimatePresence, motion } from 'framer-motion';
 import React, { useRef, useState, useEffect } from 'react';
 import { AspectRatio, CameoProfile, GenerateVideoParams, GenerationMode, ImageFile, Resolution, VeoModel } from '../types';
 import { ArrowUp, Plus, User } from 'lucide-react';
@@ -270,24 +269,14 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none mb-6">
       
-      <motion.div
+      <div
         ref={barRef}
-        className="w-full max-w-2xl mx-4 bg-neutral-900/90 border border-white/10 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.7)] overflow-hidden pointer-events-auto relative ring-1 ring-white/5 group rounded-[32px]"
-        initial={false}
-        animate={{
-          height: 'auto',
-        }}
-        transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+        className="w-full max-w-2xl mx-4 bg-neutral-900/90 border border-white/10 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.7)] overflow-hidden pointer-events-auto relative ring-1 ring-white/5 group rounded-[32px] transition-all duration-300"
       >
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-              className="px-3 pt-3"
-            >
+        {isExpanded && (
+          <div
+            className="px-3 pt-3 animate-in fade-in slide-in-from-top-2 duration-300"
+          >
               {/* Cameos section */}
               <div className="bg-black/40 rounded-2xl p-2 border border-white/5 shadow-inner">
                 <div className="flex items-center gap-2 mb-1 px-2 text-white/70 pt-1">
@@ -326,9 +315,8 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
                   ))}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+        )}
 
         <div className={`flex items-end gap-3 px-3 pb-3 relative transition-all ${isExpanded ? 'pt-3' : 'pt-3'}`}>
           <button 
@@ -345,30 +333,22 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
           
           <div className="flex-grow relative py-2 flex items-center">
             {/* Animated Placeholder with Tab Hint */}
-            <AnimatePresence mode="wait">
-              {prompt === '' && isExpanded && (
-                <motion.div
-                  key={examplePrompts[promptIndex]}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  transition={{ duration: 0.3 }}
-                  className="absolute inset-y-0 left-0 flex items-center w-full pointer-events-none pr-2"
+            {prompt === '' && isExpanded && (
+              <div
+                key={examplePrompts[promptIndex]}
+                className="absolute inset-y-0 left-0 flex items-center w-full pointer-events-none pr-2 animate-in fade-in slide-in-from-bottom-1 duration-300"
+              >
+                <span className="text-white/40 text-lg font-light font-sans tracking-wide truncate flex-grow">
+                  {examplePrompts[promptIndex]}
+                </span>
+                <button
+                  className="ml-2 px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-[10px] font-mono text-white/50 uppercase flex items-center gap-1 pointer-events-auto cursor-pointer hover:bg-white/10 hover:text-white/70 transition-colors animate-in fade-in zoom-in-90 duration-300 delay-150"
+                  onClick={fillPrompt}
                 >
-                  <span className="text-white/40 text-lg font-light font-sans tracking-wide truncate flex-grow">
-                    {examplePrompts[promptIndex]}
-                  </span>
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="ml-2 px-1.5 py-0.5 rounded border border-white/20 bg-white/5 text-[10px] font-mono text-white/50 uppercase flex items-center gap-1 pointer-events-auto cursor-pointer hover:bg-white/10 hover:text-white/70 transition-colors"
-                    onClick={fillPrompt}
-                  >
-                    Tab
-                  </motion.button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  Tab
+                </button>
+              </div>
+            )}
 
             <textarea
               ref={inputRef}
@@ -388,19 +368,14 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0 pb-0.5">
-            <AnimatePresence mode="wait">
-                {selectedCameoId && selectedProfile && (
-                    <motion.div
-                        key="cameo-badge"
-                        initial={{ width: 0, opacity: 0, scale: 0.9 }}
-                        animate={{ width: 'auto', opacity: 1, scale: 1 }}
-                        exit={{ width: 0, opacity: 0, scale: 0.9 }}
-                        className="overflow-hidden flex items-center justify-center h-11 px-1.5 bg-white/10 border border-white/10 backdrop-blur-md text-white rounded-xl"
-                    >
-                        <img src={selectedProfile.imageUrl} alt={selectedProfile.name} className="w-8 h-8 rounded-lg object-cover bg-black/50" />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {selectedCameoId && selectedProfile && (
+                <div
+                    key="cameo-badge"
+                    className="overflow-hidden flex items-center justify-center h-11 px-1.5 bg-white/10 border border-white/10 backdrop-blur-md text-white rounded-xl animate-in fade-in zoom-in-90 duration-300"
+                >
+                    <img src={selectedProfile.imageUrl} alt={selectedProfile.name} className="w-8 h-8 rounded-lg object-cover bg-black/50" />
+                </div>
+            )}
             
             <button
               onClick={handleSubmit}
@@ -415,7 +390,7 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
             </button>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

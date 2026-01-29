@@ -3,7 +3,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { motion } from 'framer-motion';
 import React, { useRef, useState } from 'react';
 import { FeedPost, PostStatus } from '../types';
 import { VeoLogo } from './icons';
@@ -116,14 +115,10 @@ const VideoCard: React.FC<{ post: FeedPost }> = ({ post }) => {
   };
 
   return (
-    <motion.div
-      className="relative w-full h-full rounded-3xl overflow-hidden bg-gray-900/40 border border-white/5 aspect-[9/16] group shadow-2xl shadow-black/50 ring-1 ring-black/50 flex flex-col"
+    <div
+      className="relative w-full h-full rounded-3xl overflow-hidden bg-gray-900/40 border border-white/5 aspect-[9/16] group shadow-2xl shadow-black/50 ring-1 ring-black/50 flex flex-col animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      initial={{ opacity: 0, scale: 0.95, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ duration: 0.4, type: 'spring' }}
-      layout // Animates layout changes when new items are added
     >
       {status === PostStatus.SUCCESS && post.status /* Check explicitly for new posts */ && (
         <div className="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-black flex items-center gap-1 shadow-[0_2px_10px_rgba(0,0,0,0.2)]">
@@ -171,7 +166,7 @@ const VideoCard: React.FC<{ post: FeedPost }> = ({ post }) => {
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
