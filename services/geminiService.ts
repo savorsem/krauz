@@ -7,17 +7,21 @@ import {
   VideoGenerationReferenceImage,
   VideoGenerationReferenceType,
 } from '@google/genai';
-import {GenerateVideoParams, GenerationMode, ImageFile} from '../types';
+import {GenerateVideoParams, GenerationMode} from '../types';
 
-// Fix: API key is now handled by process.env.API_KEY, so it's removed from parameters.
 export const generateVideo = async (
   params: GenerateVideoParams,
 ): Promise<{url: string; blob: Blob}> => {
-  console.log('Starting video generation with params:', params);
+  console.log('[Veo Service] Starting generation...', params.mode);
 
-  // Fix: API key must be obtained from process.env.API_KEY as per guidelines.
+  if (!process.env.API_KEY) {
+    throw new Error('API Key is missing. Please select a key via the dialog.');
+  }
+
+  // Create a fresh instance to ensure the latest API key is used
   const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 
+  // Construct Payload
   const generateVideoPayload: any = {
     model: params.model,
     prompt: params.prompt,
@@ -28,121 +32,120 @@ export const generateVideo = async (
     },
   };
 
-  if (params.mode === GenerationMode.FRAMES_TO_VIDEO) {
-    if (params.startFrame) {
-      generateVideoPayload.image = {
-        imageBytes: params.startFrame.base64,
-        mimeType: params.startFrame.file.type,
-      };
-      console.log(
-        `Generating with start frame: ${params.startFrame.file.name}`,
-      );
-    }
-
-    const finalEndFrame = params.isLooping
-      ? params.startFrame
-      : params.endFrame;
-    if (finalEndFrame) {
-      generateVideoPayload.config.lastFrame = {
-        imageBytes: finalEndFrame.base64,
-        mimeType: finalEndFrame.file.type,
-      };
-      if (params.isLooping) {
-        console.log(
-          `Generating a looping video using start frame as end frame: ${finalEndFrame.file.name}`,
-        );
-      } else {
-        console.log(`Generating with end frame: ${finalEndFrame.file.name}`);
+  // Handle Mode-Specific Configurations
+  try {
+    if (params.mode === GenerationMode.FRAMES_TO_VIDEO) {
+      if (params.startFrame) {
+        generateVideoPayload.image = {
+          imageBytes: params.startFrame.base64,
+          mimeType: params.startFrame.file.type,
+        };
       }
-    }
-  } else if (params.mode === GenerationMode.REFERENCES_TO_VIDEO) {
-    const referenceImagesPayload: VideoGenerationReferenceImage[] = [];
+      
+      const finalEndFrame = params.isLooping ? params.startFrame : params.endFrame;
+      if (finalEndFrame) {
+        generateVideoPayload.config.lastFrame = {
+          imageBytes: finalEndFrame.base64,
+          mimeType: finalEndFrame.file.type,
+        };
+      }
+    } else if (params.mode === GenerationMode.REFERENCES_TO_VIDEO) {
+      const referenceImagesPayload: VideoGenerationReferenceImage[] = [];
 
-    if (params.referenceImages) {
-      for (const img of params.referenceImages) {
-        console.log(`Adding reference image: ${img.file.name} (${img.file.type})`);
+      if (params.referenceImages) {
+        for (const img of params.referenceImages) {
+          referenceImagesPayload.push({
+            image: {
+              imageBytes: img.base64,
+              mimeType: img.file.type,
+            },
+            referenceType: VideoGenerationReferenceType.ASSET,
+          });
+        }
+      }
+
+      // If needed in future: Style images
+      if (params.styleImage) {
         referenceImagesPayload.push({
           image: {
-            imageBytes: img.base64,
-            mimeType: img.file.type,
+            imageBytes: params.styleImage.base64,
+            mimeType: params.styleImage.file.type,
           },
-          referenceType: VideoGenerationReferenceType.ASSET,
+          referenceType: VideoGenerationReferenceType.STYLE,
         });
       }
-    }
 
-    if (params.styleImage) {
-      console.log(
-        `Adding style image as a reference: ${params.styleImage.file.name}`,
-      );
-      referenceImagesPayload.push({
-        image: {
-          imageBytes: params.styleImage.base64,
-          mimeType: params.styleImage.file.type,
-        },
-        referenceType: VideoGenerationReferenceType.STYLE,
-      });
+      if (referenceImagesPayload.length > 0) {
+        generateVideoPayload.config.referenceImages = referenceImagesPayload;
+      }
     }
+  } catch (payloadError) {
+    console.error("Error building payload:", payloadError);
+    throw new Error("Failed to prepare request data.");
+  }
 
-    if (referenceImagesPayload.length > 0) {
-      generateVideoPayload.config.referenceImages = referenceImagesPayload;
-    }
-  } /* else if (params.mode === GenerationMode.EXTEND_VIDEO) {
-    if (params.inputVideo) {
-      generateVideoPayload.video = {
-        videoBytes: params.inputVideo.base64,
-        mimeType: params.inputVideo.file.type,
-      };
-      console.log(
-        `Generating with input video: ${params.inputVideo.file.name}`,
-      );
-    }
-  } */
+  // 1. Submit Generation Request
+  let operation;
+  try {
+      operation = await ai.models.generateVideos(generateVideoPayload);
+      console.log('[Veo Service] Operation started:', operation.name);
+  } catch (e: any) {
+      console.error('[Veo Service] API Request Failed:', e);
+      let msg = e.message || 'Unknown API error';
+      if (msg.includes('403')) msg = 'API Key invalid or billing disabled.';
+      if (msg.includes('429')) msg = 'Quota exceeded. Please try again later.';
+      throw new Error(msg);
+  }
 
-  console.log('Submitting video generation request...', JSON.stringify(generateVideoPayload, (k, v) => k.includes('Bytes') ? '<base64_data>' : v));
-  let operation = await ai.models.generateVideos(generateVideoPayload);
-  console.log('Video generation operation started:', operation.name);
+  // 2. Poll for Completion
+  const startTime = Date.now();
+  const TIMEOUT_MS = 600000; // 10 minutes max (Veo can take time)
+  const POLLING_INTERVAL = 5000;
 
   while (!operation.done) {
-    await new Promise((resolve) => setTimeout(resolve, 10000));
-    console.log('...Generating...');
-    operation = await ai.operations.getVideosOperation({operation: operation});
+    if (Date.now() - startTime > TIMEOUT_MS) {
+        throw new Error("Generation timed out (server took too long).");
+    }
+    
+    await new Promise((resolve) => setTimeout(resolve, POLLING_INTERVAL));
+    
+    try {
+        operation = await ai.operations.getVideosOperation({operation: operation});
+    } catch (pollError) {
+        console.warn('[Veo Service] Polling network error (retrying...):', pollError);
+        // Do not throw here, transient network errors shouldn't fail the whole job
+    }
   }
 
+  // 3. Handle Result
   if (operation.error) {
-    console.error('Operation failed with error:', operation.error);
-    throw new Error(operation.error.message || 'Video generation failed.');
+    console.error('[Veo Service] Backend Processing Error:', operation.error);
+    throw new Error(operation.error.message || 'The model refused the request (Safety or Internal Error).');
   }
 
-  if (operation.response) {
-    const videos = operation.response.generatedVideos;
+  if (operation.response?.generatedVideos?.length > 0) {
+    const videoUri = operation.response.generatedVideos[0].video?.uri;
+    if (!videoUri) throw new Error('API returned success but no video URI.');
 
-    if (!videos || videos.length === 0) {
-      console.error('Operation finished but no videos generated. Response:', JSON.stringify(operation.response));
-      throw new Error('No videos were generated. The prompt or reference image might have triggered safety filters.');
+    // 4. Download Video
+    try {
+        const cleanUri = decodeURIComponent(videoUri);
+        const fetchUrl = `${cleanUri}&key=${process.env.API_KEY}`;
+        
+        console.log('[Veo Service] Downloading video...');
+        const res = await fetch(fetchUrl);
+        
+        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+        
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        
+        return { url, blob };
+    } catch (downloadError: any) {
+        console.error("Download error:", downloadError);
+        throw new Error(`Failed to download generated video: ${downloadError.message}`);
     }
-
-    const firstVideo = videos[0];
-    if (!firstVideo?.video?.uri) {
-      throw new Error('Generated video is missing a URI.');
-    }
-
-    const url = decodeURIComponent(firstVideo.video.uri);
-    console.log('Fetching video from:', url);
-
-    // Fix: The API key for fetching the video must also come from process.env.API_KEY.
-    const res = await fetch(`${url}&key=${process.env.API_KEY}`);
-
-    if (!res.ok) {
-      throw new Error(`Failed to fetch video: ${res.status} ${res.statusText}`);
-    }
-
-    const videoBlob = await res.blob();
-    const videoUrl = URL.createObjectURL(videoBlob);
-
-    return {url: videoUrl, blob: videoBlob};
   } else {
-    console.error('Operation finished without response or error:', operation);
-    throw new Error('Video generation finished but no video was returned.');
+    throw new Error('No videos returned in response.');
   }
 };

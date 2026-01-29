@@ -1,8 +1,20 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
+
+// Global augmentation for the AI Studio environment injection
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}
+
 export enum AppState {
   IDLE,
   LOADING,
@@ -29,7 +41,6 @@ export enum GenerationMode {
   TEXT_TO_VIDEO = 'Text to Video',
   FRAMES_TO_VIDEO = 'Frames to Video',
   REFERENCES_TO_VIDEO = 'References to Video',
-  // EXTEND_VIDEO = 'Extend Video',
 }
 
 export interface ImageFile {
@@ -69,13 +80,13 @@ export interface FeedPost {
   avatarUrl: string;
   description: string;
   modelTag: string;
-  status?: PostStatus; // If undefined, implies legacy/sample success
+  status?: PostStatus;
   errorMessage?: string;
-  referenceImageBase64?: string; // To show during loading
+  referenceImageBase64?: string;
 }
 
 export interface CameoProfile {
   id: string;
   name: string;
-  imageUrl: string; // In a real app, this would be a URL. For this demo, we'll use base64 placeholders.
+  imageUrl: string; // Base64 string for offline capability
 }
