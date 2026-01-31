@@ -3,12 +3,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-highlight: rgba(255, 255, 255, 0.05);
-}
-
 @layer base {
   body {
     @apply antialiased text-slate-900 dark:text-white bg-slate-50 dark:bg-black;
@@ -26,7 +20,11 @@
   }
   
   .glass-panel {
-    @apply backdrop-blur-2xl bg-white/70 dark:bg-[#0a0a0a]/80 border border-white/20 dark:border-white/10 shadow-xl;
+    @apply backdrop-blur-xl bg-white/80 dark:bg-[#111]/80 border border-white/20 dark:border-white/10 shadow-2xl;
+  }
+  
+  .glass-button {
+    @apply backdrop-blur-md bg-white/10 border border-white/10 hover:bg-white/20 transition-all active:scale-95;
   }
 
   .text-shadow-sm {
@@ -36,5 +34,9 @@
   /* Professional Noise Texture for background */
   .bg-noise {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+  }
+
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

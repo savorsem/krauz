@@ -3,114 +3,62 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useRef, useState, useEffect } from 'react';
-import { AspectRatio, CameoProfile, GenerateVideoParams, GenerationMode, ImageFile, Resolution, VeoModel } from '../types';
-import { ArrowUp, Plus, User, Upload, Check, X, Smartphone, Monitor, Zap, Sparkles, SlidersHorizontal, Lock, Image as ImageIcon, Clapperboard, Wand2, Camera } from 'lucide-react';
+import * as React from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { AspectRatio, CameoProfile, GenerateVideoParams, GenerationMode, ImageFile, Resolution, VeoModel, CameoImage } from '../types';
+import { ArrowUp, Plus, User, Upload, Check, X, Smartphone, Monitor, Zap, Sparkles, SlidersHorizontal, Lock, Image as ImageIcon, Clapperboard, Wand2, Camera, UserPlus, Info, Trash2, RefreshCw } from 'lucide-react';
 import { saveToDB, getAllFromDB, deleteFromDB, STORES_CONST } from '../utils/db';
-
-const defaultCameoProfiles: CameoProfile[] = [];
-
-const examplePrompts = [
-  "Пишу код на заснеженной вершине...",
-  "Прыгаю с парашютом над океаном...",
-  "На красной ковровой дорожке...",
-  "Управляю космическим кораблем...",
-  "Играю диджей-сет на фестивале...",
-  "Нахожу древний храм...",
-  "Пью кофе в Париже...",
-  "Катаюсь на серфе на закате...",
-  "Играю соло на гитаре...",
-];
-
-const urlToImageFile = async (url: string): Promise<ImageFile | null> => {
-  try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Fetch failed");
-      const blob = await response.blob();
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({ 
-            file: new File([blob], 'cameo.png', { type: blob.type }), 
-            base64: (reader.result as string).split(',')[1] 
-        });
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      });
-  } catch (e) {
-      console.warn("Failed to load image from URL:", url);
-      return null;
-  }
-};
-
-const fileToImageFile = (file: File): Promise<ImageFile> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve({ 
-          file, 
-          base64: (reader.result as string).split(',')[1] 
-      });
-      reader.readAsDataURL(file);
-    });
-};
 
 interface BottomPromptBarProps {
   onGenerate: (params: GenerateVideoParams) => void;
+  defaultModel?: VeoModel;
+  profiles: CameoProfile[];
+  onProfilesChange: () => void;
 }
 
-const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
+const SettingBtn = ({ active, onClick, icon: Icon, label, disabled }: any) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border ${
+      active ? 'bg-indigo-600 text-white border-transparent shadow-lg shadow-indigo-500/20' : 'bg-transparent text-slate-500 dark:text-white/40 border-slate-200 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5'
+    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+  >
+    {Icon && <Icon className="w-3.5 h-3.5" />}
+    {label}
+  </button>
+);
+
+const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate, defaultModel = VeoModel.VEO_FAST, profiles, onProfilesChange }) => {
   const [prompt, setPrompt] = useState('');
-  
-  // Modes: 'text' = Standard Text-to-Video, 'cameo' = Subject Reference
   const [mode, setMode] = useState<'text' | 'cameo'>('text');
-  
-  const [selectedCameoIds, setSelectedCameoIds] = useState<string[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Settings
-  const [selectedModel, setSelectedModel] = useState<VeoModel>(VeoModel.VEO_FAST);
+  // Initialize with defaultModel
+  const [selectedModel, setSelectedModel] = useState<VeoModel>(defaultModel);
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatio>(AspectRatio.PORTRAIT);
   const [selectedResolution, setSelectedResolution] = useState<Resolution>(Resolution.P720);
 
-  const [profiles, setProfiles] = useState<CameoProfile[]>(defaultCameoProfiles);
-  const [profileImages, setProfileImages] = useState<Record<string, ImageFile>>({});
   const [promptIndex, setPromptIndex] = useState(0);
 
-  // Camera State
   const [showCamera, setShowCamera] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(false);
+  const [targetProfileId, setTargetProfileId] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null); // For review state
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const barRef = useRef<HTMLDivElement>(null);
 
-  // Derived Constraints
-  // Cameo mode forces the Pro model for better adherence
-  const effectiveModel = mode === 'cameo' ? VeoModel.VEO : selectedModel;
-  const effectiveAspectRatio = selectedAspectRatio; // Allow ratio choice in both, but could lock if needed
-  const effectiveResolution = selectedResolution;
+  const examplePrompts = ["Пишу код на заснеженной вершине...", "Прыгаю с парашютом над океаном...", "На красной ковровой дорожке...", "Управляю космическим кораблем...", "Играю диджей-сет на фестивале...", "Нахожу древний храм...", "Пью кофе в Париже...", "Катаюсь на серфе на закате..."];
 
+  // Update selectedModel if defaultModel prop changes
   useEffect(() => {
-    const loadProfiles = async () => {
-      try {
-        const stored = await getAllFromDB<CameoProfile>(STORES_CONST.PROFILES);
-        setProfiles(stored.reverse());
-        // Pre-cache images
-        for (const p of stored) {
-           if (!profileImages[p.id]) {
-                if (p.imageUrl.startsWith('data:')) {
-                    fetch(p.imageUrl).then(res => res.blob()).then(blob => {
-                         const file = new File([blob], 'stored.png', { type: blob.type });
-                         setProfileImages(prev => ({...prev, [p.id]: { file, base64: p.imageUrl.split(',')[1] }}));
-                    }).catch(err => console.error("Failed to restore image from DB blob", err));
-                }
-           }
-        }
-      } catch (e) { console.error("Profile load error", e); }
-    };
-    loadProfiles();
-  }, []);
+    setSelectedModel(defaultModel);
+  }, [defaultModel]);
 
   useEffect(() => {
     if (prompt !== '') return;
@@ -118,392 +66,434 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate }) => {
     return () => clearInterval(interval);
   }, [prompt]);
 
-  // Camera Logic
   useEffect(() => {
     let stream: MediaStream | null = null;
-    if (showCamera) {
+    if (showCamera && !capturedImage) {
       const initCamera = async () => {
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: false
-            });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-        } catch (e) {
-            console.error("Camera access failed", e);
-            alert("Не удалось получить доступ к камере.");
-            setShowCamera(false);
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1080 } }, audio: false });
+            if (videoRef.current) videoRef.current.srcObject = stream;
+        } catch (e) { 
+            console.error("Camera access denied", e);
+            setShowCamera(false); 
         }
       };
       initCamera();
     }
+    return () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
+  }, [showCamera, capturedImage]);
 
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [showCamera]);
+  const addImageToProfile = async (profileId: string | null, newImage: CameoImage) => {
+        let updatedProfile: CameoProfile;
+        
+        if (profileId) {
+            // Add to existing
+            const existing = profiles.find(p => p.id === profileId);
+            if (!existing) return;
+            updatedProfile = { ...existing, images: [...existing.images, newImage] };
+        } else {
+            // Create new generic
+            const newId = `char-${Date.now()}`;
+            updatedProfile = { id: newId, name: 'Герой', images: [newImage] };
+            setSelectedProfileId(newId);
+        }
+        
+        await saveToDB(STORES_CONST.PROFILES, updatedProfile);
+        onProfilesChange();
+  };
 
   const handleCameraCapture = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Match dimensions
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
+    setIsFlashing(true);
+    setTimeout(() => setIsFlashing(false), 200);
+
+    const size = Math.min(video.videoWidth, video.videoHeight);
+    canvas.width = size;
+    canvas.height = size;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-        // Draw the video frame to canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, (video.videoWidth - size) / 2, (video.videoHeight - size) / 2, size, size, 0, 0, size, size);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
         const base64 = dataUrl.split(',')[1];
+        const newImg: CameoImage = { id: `img-${Date.now()}`, url: dataUrl, base64 };
         
-        // Convert to blob/file
-        fetch(dataUrl)
-            .then(res => res.blob())
-            .then(blob => {
-                const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
-                const imgFile: ImageFile = { file, base64 };
-                
-                // Create new profile
-                const newId = `user-${Date.now()}`;
-                const newProfile = { id: newId, name: 'Снимок', imageUrl: `data:image/jpeg;base64,${base64}` };
-                
-                setProfiles(prev => [newProfile, ...prev]);
-                setProfileImages(prev => ({ ...prev, [newId]: imgFile }));
-                
-                // Select it automatically
-                if (mode !== 'cameo') setMode('cameo');
-                setSelectedCameoIds(prev => prev.length < 3 ? [...prev, newId] : prev);
-                
-                saveToDB(STORES_CONST.PROFILES, newProfile);
-                if (!isExpanded) setIsExpanded(true);
-                
-                setShowCamera(false);
-            });
+        // If we are targeting a specific profile, save immediately
+        if (targetProfileId) {
+            addImageToProfile(targetProfileId, newImg);
+            if (mode !== 'cameo') setMode('cameo');
+            setTimeout(() => setShowCamera(false), 300);
+        } else {
+            // Otherwise, enter review mode to let user choose
+            setCapturedImage(dataUrl);
+        }
     }
   };
 
-  // Handler to switch modes
-  const handleModeSwitch = (newMode: 'text' | 'cameo') => {
-    setMode(newMode);
-    if (newMode === 'cameo') {
-      // Auto-select first profile if none selected when switching to Cameo
-      if (selectedCameoIds.length === 0 && profiles.length > 0) {
-        setSelectedCameoIds([profiles[0].id]);
-      }
+  const handleAssignToProfile = async (profileId: string) => {
+    if (!capturedImage) return;
+    const base64 = capturedImage.split(',')[1];
+    const newImg: CameoImage = { id: `img-${Date.now()}`, url: capturedImage, base64 };
+    await addImageToProfile(profileId, newImg);
+    
+    setCapturedImage(null);
+    setShowCamera(false);
+    setMode('cameo');
+    setSelectedProfileId(profileId);
+  };
+
+  const handleCreateNewProfile = async () => {
+    if (!capturedImage) return;
+    const name = window.prompt("Имя персонажа:", "Новый Герой");
+    if (name) {
+        const base64 = capturedImage.split(',')[1];
+        const newImg: CameoImage = { id: `img-${Date.now()}`, url: capturedImage, base64 };
+        
+        const newId = `char-${Date.now()}`;
+        const newProfile = { id: newId, name, images: [newImg] };
+        
+        await saveToDB(STORES_CONST.PROFILES, newProfile);
+        onProfilesChange();
+        setSelectedProfileId(newId);
+        
+        setCapturedImage(null);
+        setShowCamera(false);
+        setMode('cameo');
     }
+  };
+
+  const handleRetake = () => {
+      setCapturedImage(null);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-        const imgFile = await fileToImageFile(file);
-        const newId = `user-${Date.now()}`;
-        const newProfile = { id: newId, name: 'Вы', imageUrl: `data:${file.type};base64,${imgFile.base64}` };
-        
-        setProfiles(prev => [newProfile, ...prev]);
-        setProfileImages(prev => ({ ...prev, [newId]: imgFile }));
-        
-        // If uploading, likely wants to use it immediately
-        setMode('cameo');
-        setSelectedCameoIds(prev => prev.length < 3 ? [...prev, newId] : prev);
-        
-        saveToDB(STORES_CONST.PROFILES, newProfile);
-        
-        if (!isExpanded) setIsExpanded(true);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Helper to read file
+    const readFile = (file: File): Promise<CameoImage> => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const url = reader.result as string;
+                resolve({
+                    id: `img-${Date.now()}-${Math.random().toString(36).substr(2,9)}`,
+                    url: url,
+                    base64: url.split(',')[1]
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
+    if (files.length > 0) {
+        const newImages: CameoImage[] = [];
+        for (let i = 0; i < files.length; i++) {
+            if(files[i].type.startsWith('image/')) {
+                newImages.push(await readFile(files[i]));
+            }
+        }
+
+        if (newImages.length === 0) return;
+
+        if (targetProfileId) {
+             // Add all to target profile
+             const existing = profiles.find(p => p.id === targetProfileId);
+             if (existing) {
+                const updatedProfile = { ...existing, images: [...existing.images, ...newImages] };
+                await saveToDB(STORES_CONST.PROFILES, updatedProfile);
+                onProfilesChange();
+                setMode('cameo');
+                setSelectedProfileId(targetProfileId);
+             }
+             setTargetProfileId(null); // Reset target
+        } else {
+            // Create New Profile with these images
+            const name = window.prompt(newImages.length > 1 ? `Имя персонажа (${newImages.length} фото):` : "Имя персонажа:", "Новый Герой");
+            if (name) {
+                const newId = `char-${Date.now()}`;
+                const newProfile = { id: newId, name, images: newImages };
+                await saveToDB(STORES_CONST.PROFILES, newProfile);
+                onProfilesChange();
+                setSelectedProfileId(newId);
+                setMode('cameo');
+            }
+        }
     }
+    
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleCameoSelect = (id: string) => {
-    setSelectedCameoIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : (prev.length >= 3 ? prev : [...prev, id]));
-  };
-
-  const handleDeleteProfile = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteProfile = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setProfiles(prev => prev.filter(p => p.id !== id));
-    setSelectedCameoIds(prev => prev.filter(pId => pId !== id));
-    await deleteFromDB(STORES_CONST.PROFILES, id);
+    if (confirm('Удалить этого персонажа?')) {
+        await deleteFromDB(STORES_CONST.PROFILES, id);
+        onProfilesChange();
+        if (selectedProfileId === id) setSelectedProfileId(null);
+    }
   };
 
   const handleSubmit = async () => {
     if (!prompt.trim()) return;
     
-    let generationMode = GenerationMode.TEXT_TO_VIDEO;
     let referenceImages: ImageFile[] | undefined = undefined;
-
-    if (mode === 'cameo') {
-      generationMode = GenerationMode.REFERENCES_TO_VIDEO;
-      
-      if (selectedCameoIds.length === 0) {
-        alert("Выберите хотя бы одного персонажа для Cameo.");
-        return;
-      }
-
-      try {
-          const imgs = await Promise.all(selectedCameoIds.map(async (id) => {
-              const p = profiles.find(c => c.id === id);
-              if (!p) return null;
-              
-              if (profileImages[p.id]) return profileImages[p.id];
-              return await urlToImageFile(p.imageUrl);
-          }));
-          
-          const validImgs = imgs.filter(Boolean) as ImageFile[];
-          if (validImgs.length === 0) {
-              alert("Не удалось загрузить выбранные изображения.");
-              return;
-          }
-          referenceImages = validImgs;
-      } catch (e) { console.error(e); return; }
+    if (mode === 'cameo' && selectedProfileId) {
+        const profile = profiles.find(p => p.id === selectedProfileId);
+        if (profile) {
+            // Use up to 3 most recent images as references
+            const latestImages = profile.images.slice(-3);
+            referenceImages = latestImages.map(img => ({
+                file: new File([], `${img.id}.jpg`, { type: 'image/jpeg' }),
+                base64: img.base64
+            }));
+        }
     }
 
     onGenerate({ 
         prompt, 
-        model: effectiveModel, 
-        aspectRatio: effectiveAspectRatio, 
-        resolution: effectiveResolution, 
-        mode: generationMode, 
-        referenceImages 
+        model: mode === 'cameo' ? VeoModel.VEO : selectedModel, 
+        aspectRatio: selectedAspectRatio, 
+        resolution: selectedResolution, 
+        mode: mode === 'cameo' ? GenerationMode.REFERENCES_TO_VIDEO : GenerationMode.TEXT_TO_VIDEO,
+        referenceImages
     });
-    
     setPrompt('');
-    if (inputRef.current) inputRef.current.style.height = '24px';
   };
-
-  // Helper UI Components
-  const SettingBtn = ({ active, onClick, icon: Icon, label, disabled }: any) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border ${
-        active
-          ? 'bg-slate-900 text-white border-transparent dark:bg-white dark:text-black shadow-md'
-          : 'bg-transparent text-slate-500 dark:text-white/40 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/5'
-      } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-    >
-      {disabled && active && <Lock className="w-2.5 h-2.5 absolute -top-1 -right-1 text-indigo-500 bg-white dark:bg-black rounded-full p-0.5 box-content border border-indigo-500 z-10" />}
-      {Icon && <Icon className="w-3 h-3" />}
-      {label}
-    </button>
-  );
 
   return (
     <>
-    {/* Camera Modal */}
     <AnimatePresence>
         {showCamera && (
-            <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] bg-black flex flex-col pointer-events-auto"
-            >
-                <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
-                    {/* Mirroring preview for selfie feel */}
-                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover transform scale-x-[-1]" />
-                    
-                    <button onClick={() => setShowCamera(false)} className="absolute top-6 right-6 w-10 h-10 bg-black/40 backdrop-blur-md text-white rounded-full flex items-center justify-center z-10">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] bg-black flex flex-col">
+                {capturedImage ? (
+                    // Review Mode
+                    <div className="relative flex-1 bg-black overflow-hidden flex flex-col">
+                        <img src={capturedImage} className="flex-1 object-contain bg-black" alt="Captured" />
+                        
+                        <div className="absolute top-6 left-6 z-20">
+                            <button onClick={handleRetake} className="w-12 h-12 bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
+                                <RefreshCw className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="absolute top-6 right-6 z-20">
+                            <button onClick={() => { setShowCamera(false); setCapturedImage(null); }} className="w-12 h-12 bg-black/40 backdrop-blur-md border border-white/10 text-white rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
 
-                <div className="h-32 bg-black flex items-center justify-center pb-[env(safe-area-inset-bottom)] relative">
-                    <button 
-                    onClick={handleCameraCapture}
-                    className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1 active:scale-95 transition-transform"
-                    >
-                        <div className="w-full h-full bg-white rounded-full"></div>
-                    </button>
-                </div>
-                
-                <canvas ref={canvasRef} className="hidden" />
+                        <div className="bg-[#111] border-t border-white/10 p-4 pb-12 safe-area-pb">
+                            <p className="text-white/60 text-[10px] font-bold uppercase tracking-[0.2em] text-center mb-4">Назначить фото</p>
+                            <div className="flex gap-4 overflow-x-auto no-scrollbar justify-center min-h-[90px] px-4">
+                                <button onClick={handleCreateNewProfile} className="flex flex-col items-center gap-2 group shrink-0">
+                                    <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center group-hover:scale-105 transition-all shadow-lg shadow-indigo-500/20">
+                                        <Plus className="w-6 h-6 text-white" />
+                                    </div>
+                                    <span className="text-[10px] text-white font-bold uppercase tracking-wider">Создать</span>
+                                </button>
+                                
+                                {profiles.length > 0 && <div className="w-px h-16 bg-white/10 mx-1 shrink-0"></div>}
+
+                                {profiles.map(p => (
+                                    <button key={p.id} onClick={() => handleAssignToProfile(p.id)} className="flex flex-col items-center gap-2 group shrink-0">
+                                        <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-transparent group-hover:border-indigo-500 transition-all relative">
+                                            <img src={p.images[p.images.length-1].url} className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors" />
+                                        </div>
+                                        <span className="text-[10px] text-white/60 group-hover:text-white font-bold max-w-[64px] truncate transition-colors">{p.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    // Capture Mode
+                    <>
+                        {isFlashing && <div className="absolute inset-0 bg-white z-[110]" />}
+                        <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
+                            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover transform scale-x-[-1]" />
+                            <div className="absolute inset-0 pointer-events-none opacity-20"><div className="w-full h-full grid grid-cols-3 grid-rows-3"><div className="border-r border-b border-white"></div><div className="border-r border-b border-white"></div><div className="border-b border-white"></div><div className="border-r border-b border-white"></div><div className="border-r border-b border-white"></div><div className="border-b border-white"></div><div className="border-r border-white"></div><div className="border-r border-white"></div></div></div>
+                            <button onClick={() => { setShowCamera(false); setCapturedImage(null); }} className="absolute top-6 right-6 w-10 h-10 bg-black/40 backdrop-blur-md text-white rounded-full flex items-center justify-center"><X /></button>
+                            <div className="absolute bottom-10 left-0 right-0 px-10 text-center"><p className="text-white/60 text-xs uppercase tracking-widest font-bold bg-black/40 py-2 rounded-full inline-block px-4 backdrop-blur-md">
+                                {targetProfileId ? 'Добавьте новый ракурс' : 'Сфотографируйте героя'}
+                            </p></div>
+                        </div>
+                        <div className="h-32 bg-black flex items-center justify-center pb-8"><button onClick={handleCameraCapture} className="w-20 h-20 rounded-full border-[6px] border-white/20 p-1"><div className="w-full h-full bg-white rounded-full active:scale-90 transition-transform"></div></button></div>
+                        <canvas ref={canvasRef} className="hidden" />
+                    </>
+                )}
             </motion.div>
         )}
     </AnimatePresence>
 
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none pb-[env(safe-area-inset-bottom)] mb-4">
-      <motion.div
-        ref={barRef}
-        initial={false}
-        animate={{ height: 'auto' }}
-        className="w-full max-w-lg bg-white/85 dark:bg-[#111]/85 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-2xl dark:shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] rounded-[28px] pointer-events-auto overflow-hidden ring-1 ring-black/5 dark:ring-white/5 transition-all duration-500"
-      >
-        {/* Hidden File Input (Always Mounted) */}
-        <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
-
-        {/* Expanded Content Area */}
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] mb-4 pointer-events-none">
+      <motion.div className="w-full max-w-lg bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-2xl rounded-[32px] pointer-events-auto overflow-hidden">
+        <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" multiple className="hidden" />
+        
         <AnimatePresence>
           {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex flex-col gap-0"
-            >
-              {/* Tab Switcher */}
-              <div className="flex p-2 gap-1">
-                <button 
-                  onClick={() => handleModeSwitch('text')}
-                  className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all duration-200 ${mode === 'text' ? 'bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/5'}`}
-                >
-                  <Clapperboard className="w-4 h-4" />
-                  Text to Video
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex flex-col">
+              <div className="flex p-2 gap-1 bg-slate-100 dark:bg-white/5 mx-2 mt-2 rounded-2xl">
+                <button onClick={() => setMode('text')} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all ${mode === 'text' ? 'bg-white dark:bg-neutral-800 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 dark:text-white/40'}`}>
+                  <Clapperboard className="w-4 h-4" /> Text
                 </button>
-                <button 
-                  onClick={() => handleModeSwitch('cameo')}
-                  className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all duration-200 ${mode === 'cameo' ? 'bg-indigo-600 text-white shadow-indigo-500/30 shadow-md' : 'text-slate-400 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/5'}`}
-                >
-                  <Wand2 className="w-4 h-4" />
-                  Cameo Mode
+                <button onClick={() => setMode('cameo')} className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all ${mode === 'cameo' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'text-slate-500 dark:text-white/40'}`}>
+                  <Wand2 className="w-4 h-4" /> Cameo
                 </button>
               </div>
 
-              {/* Avatar Selector - Only Visible in Cameo Mode */}
-              <AnimatePresence mode="wait">
-                {mode === 'cameo' && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-2 pb-2">
-                        <div className="bg-slate-50/50 dark:bg-white/5 rounded-2xl p-2 border border-black/5 dark:border-white/5">
-                            <div className="flex items-center justify-between mb-2 px-2 text-slate-500 dark:text-white/60">
-                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
-                                    <User className="w-3 h-3" />
-                                    <span>Выберите героя ({selectedCameoIds.length}/3)</span>
+              {mode === 'cameo' && (
+                <div className="pb-2">
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar items-center px-4 pb-4 pt-4 min-h-[110px]">
+                        {/* Action: New Avatars */}
+                        <div className="flex gap-2 shrink-0">
+                            <button 
+                                onClick={() => { setTargetProfileId(null); setShowCamera(true); }}
+                                className="w-16 h-16 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-300 dark:border-white/20 flex flex-col items-center justify-center gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:border-indigo-500 transition-all group active:scale-95"
+                                title="Сделать фото"
+                            >
+                                <div className="w-7 h-7 rounded-full bg-white dark:bg-white/10 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                    <Camera className="w-3.5 h-3.5 text-slate-400 dark:text-white/60 group-hover:text-indigo-500" />
                                 </div>
-                            </div>
-                            
-                            <div className="flex gap-2 overflow-x-auto no-scrollbar items-center px-1 pb-1">
-                            <button onClick={() => fileInputRef.current?.click()} className="w-12 h-12 shrink-0 rounded-xl border border-dashed border-slate-300 dark:border-white/20 hover:border-indigo-500 dark:hover:border-indigo-400 bg-white/50 dark:bg-white/5 text-slate-400 flex items-center justify-center transition-all hover:bg-indigo-50 dark:hover:bg-indigo-900/20 group" title="Загрузить фото">
-                                <Upload className="w-5 h-5 group-hover:scale-110 transition-transform text-current dark:text-white/50" />
+                                <span className="text-[8px] font-bold uppercase text-slate-400 dark:text-white/40">Camera</span>
                             </button>
-                            <button onClick={() => setShowCamera(true)} className="w-12 h-12 shrink-0 rounded-xl border border-dashed border-slate-300 dark:border-white/20 hover:border-indigo-500 dark:hover:border-indigo-400 bg-white/50 dark:bg-white/5 text-slate-400 flex items-center justify-center transition-all hover:bg-indigo-50 dark:hover:bg-indigo-900/20 group" title="Сделать фото">
-                                <Camera className="w-5 h-5 group-hover:scale-110 transition-transform text-current dark:text-white/50" />
-                            </button>
-                            
-                            {(profiles.length > 0 || selectedCameoIds.length > 0) && <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1 shrink-0" />}
-                            {profiles.length === 0 && <span className="text-[10px] text-slate-400 dark:text-white/30 italic px-2">Добавьте фото...</span>}
 
+                            <button 
+                                onClick={() => { setTargetProfileId(null); fileInputRef.current?.click(); }}
+                                className="w-16 h-16 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-300 dark:border-white/20 flex flex-col items-center justify-center gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:border-indigo-500 transition-all group active:scale-95"
+                                title="Загрузить фото"
+                            >
+                                <div className="w-7 h-7 rounded-full bg-white dark:bg-white/10 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                    <Upload className="w-3.5 h-3.5 text-slate-400 dark:text-white/60 group-hover:text-indigo-500" />
+                                </div>
+                                <span className="text-[8px] font-bold uppercase text-slate-400 dark:text-white/40">Upload</span>
+                            </button>
+                        </div>
+                        
+                        <div className="w-px h-10 bg-slate-200 dark:bg-white/10 shrink-0 mx-1"></div>
+
+                        {/* Profiles List */}
+                        <AnimatePresence initial={false}>
                             {profiles.map((p) => {
-                                const isSel = selectedCameoIds.includes(p.id);
+                                const isSelected = selectedProfileId === p.id;
                                 return (
-                                    <button key={p.id} onClick={() => handleCameoSelect(p.id)} className={`relative w-12 h-12 shrink-0 rounded-xl transition-all duration-300 group ${isSel ? 'ring-2 ring-indigo-500 dark:ring-white scale-105 z-10' : 'opacity-70 hover:opacity-100 hover:scale-105'}`}>
-                                    <img src={p.imageUrl} alt="" className="w-full h-full object-cover rounded-xl bg-black/20" />
-                                    {isSel && <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-500 text-white rounded-full flex items-center justify-center border-2 border-white dark:border-black"><Check className="w-2.5 h-2.5" /></div>}
-                                    {!isSel && <div onClick={(e) => handleDeleteProfile(e, p.id)} className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-125 transition-all shadow-sm"><X className="w-2.5 h-2.5" /></div>}
-                                    </button>
+                                    <motion.div 
+                                        key={p.id}
+                                        layoutId={`profile-${p.id}`}
+                                        className="relative shrink-0 flex flex-col items-center"
+                                    >
+                                        <button 
+                                            onClick={() => setSelectedProfileId(p.id)}
+                                            className={`relative w-16 h-16 rounded-2xl overflow-hidden transition-all duration-300 ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-white dark:ring-offset-[#111] shadow-xl scale-100 z-10' : 'opacity-60 hover:opacity-100 grayscale hover:grayscale-0 scale-95'}`}
+                                        >
+                                            {p.images[p.images.length-1] ? (
+                                                <img src={p.images[p.images.length-1].url} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">{p.name[0]}</div>
+                                            )}
+                                            
+                                            {/* Count Badge for unselected */}
+                                            {!isSelected && p.images.length > 1 && (
+                                                <div className="absolute top-1 right-1 bg-black/50 backdrop-blur text-white text-[8px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                                    {p.images.length}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Selected Overlay */}
+                                            {isSelected && (
+                                                <div className="absolute inset-0 ring-2 ring-inset ring-white/20">
+                                                     <div className="absolute top-1 right-1 bg-indigo-500 text-white rounded-full p-0.5 shadow-sm">
+                                                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </button>
+                                        
+                                        {/* Actions Pop-under */}
+                                        {isSelected && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: -5 }} 
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="absolute -bottom-9 flex gap-1 bg-white dark:bg-neutral-800 shadow-lg rounded-full p-1 border border-slate-100 dark:border-white/10 z-20"
+                                            >
+                                                <button onClick={(e) => { e.stopPropagation(); setTargetProfileId(p.id); setShowCamera(true); }} className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-500 hover:text-indigo-500 transition-colors" title="Добавить фото">
+                                                    <Camera className="w-3 h-3" />
+                                                </button>
+                                                <div className="w-px bg-slate-200 dark:bg-white/10 my-1"></div>
+                                                 <button onClick={(e) => { e.stopPropagation(); setTargetProfileId(p.id); fileInputRef.current?.click(); }} className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-500 hover:text-indigo-500 transition-colors" title="Загрузить еще фото">
+                                                    <Upload className="w-3 h-3" />
+                                                </button>
+                                                <div className="w-px bg-slate-200 dark:bg-white/10 my-1"></div>
+                                                <button onClick={(e) => handleDeleteProfile(p.id, e)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full text-slate-500 hover:text-red-500 transition-colors" title="Удалить">
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </motion.div>
                                 );
                             })}
-                            </div>
-                        </div>
+                        </AnimatePresence>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                </div>
+              )}
 
-              {/* Advanced Settings */}
-              <AnimatePresence>
-                {settingsOpen && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-2 pb-2 overflow-hidden">
-                    <div className="bg-slate-50/50 dark:bg-white/5 rounded-2xl p-3 border border-black/5 dark:border-white/5 flex flex-col gap-3">
-                        {mode === 'cameo' && (
-                            <div className="text-[10px] text-indigo-600 dark:text-indigo-300 font-bold uppercase tracking-wider flex items-center gap-1.5 px-1">
-                                <Sparkles className="w-3 h-3" />
-                                Настройки оптимизированы для Cameo
-                            </div>
-                        )}
-                        <div className="flex flex-wrap gap-2 justify-between">
-                            <div className="flex gap-1.5">
-                                <SettingBtn active={effectiveModel === VeoModel.VEO_FAST} onClick={() => setSelectedModel(VeoModel.VEO_FAST)} icon={Zap} label="Fast" disabled={mode === 'cameo'} />
-                                <SettingBtn active={effectiveModel === VeoModel.VEO} onClick={() => setSelectedModel(VeoModel.VEO)} icon={Sparkles} label="Pro" disabled={mode === 'cameo'} />
-                            </div>
-                            <div className="w-px h-5 bg-black/10 dark:bg-white/10 self-center" />
-                            <div className="flex gap-1.5">
-                                <SettingBtn active={effectiveAspectRatio === AspectRatio.PORTRAIT} onClick={() => setSelectedAspectRatio(AspectRatio.PORTRAIT)} icon={Smartphone} label="9:16" />
-                                <SettingBtn active={effectiveAspectRatio === AspectRatio.LANDSCAPE} onClick={() => setSelectedAspectRatio(AspectRatio.LANDSCAPE)} icon={Monitor} label="16:9" />
-                            </div>
-                            <div className="w-px h-5 bg-black/10 dark:bg-white/10 self-center" />
-                             <div className="flex gap-1.5">
-                                <SettingBtn active={effectiveResolution === Resolution.P720} onClick={() => setSelectedResolution(Resolution.P720)} label="720p" />
-                                <SettingBtn active={effectiveResolution === Resolution.P1080} onClick={() => setSelectedResolution(Resolution.P1080)} label="1080p" />
-                            </div>
-                        </div>
+              {settingsOpen && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="px-3 pb-3"
+                >
+                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-3 rounded-2xl flex flex-col gap-3">
+                    <div className="flex gap-2">
+                        <SettingBtn active={selectedModel === VeoModel.VEO_FAST} onClick={() => setSelectedModel(VeoModel.VEO_FAST)} icon={Zap} label="Fast" />
+                        <SettingBtn active={selectedModel === VeoModel.VEO} onClick={() => setSelectedModel(VeoModel.VEO)} icon={Sparkles} label="Pro" />
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    <div className="flex gap-2">
+                        <SettingBtn active={selectedAspectRatio === AspectRatio.PORTRAIT} onClick={() => setSelectedAspectRatio(AspectRatio.PORTRAIT)} icon={Smartphone} label="9:16" />
+                        <SettingBtn active={selectedAspectRatio === AspectRatio.LANDSCAPE} onClick={() => setSelectedAspectRatio(AspectRatio.LANDSCAPE)} icon={Monitor} label="16:9" />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Input Bar */}
-        <div className="flex items-end gap-2 p-2 pt-0">
-          <div className="flex flex-col gap-1">
-             <button onClick={() => { if(!isExpanded) { setIsExpanded(true); setTimeout(() => setSettingsOpen(true), 100); } else { setSettingsOpen(!settingsOpen); } }}
-                className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 border ${settingsOpen ? 'bg-slate-900 text-white dark:bg-white dark:text-black border-transparent' : 'text-slate-400 dark:text-white/40 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10'}`}>
-                <SlidersHorizontal className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setIsExpanded(!isExpanded); if(!isExpanded) setTimeout(() => inputRef.current?.focus(), 100); }}
-                className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${isExpanded ? 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/20 rotate-45' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:scale-105'}`}>
-                <Plus className="w-5 h-5" />
-              </button>
-          </div>
+        <div className="flex items-end gap-2 p-3">
+          <button onClick={() => setSettingsOpen(!settingsOpen)} className={`w-11 h-11 flex items-center justify-center rounded-2xl transition-all border ${settingsOpen ? 'bg-slate-900 text-white dark:bg-white dark:text-black shadow-lg' : 'text-slate-400 dark:text-white/40 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/30'}`}>
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
           
-          <div className={`flex-grow relative flex items-center min-h-[44px] rounded-[20px] pl-3 pr-4 border transition-all gap-2 ${mode === 'cameo' ? 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-500/20 focus-within:border-indigo-500/50' : 'bg-slate-100 dark:bg-white/5 border-transparent focus-within:border-indigo-500/30 focus-within:bg-white dark:focus-within:bg-black/20'}`}>
-            
-            <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="shrink-0 p-1.5 rounded-lg text-slate-400 dark:text-white/40 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-white transition-colors"
-                title="Загрузить фото"
-            >
-                <ImageIcon className="w-5 h-5" />
-            </button>
+          <button 
+            onClick={() => { setTargetProfileId(null); setShowCamera(true); }}
+            className="w-11 h-11 flex items-center justify-center rounded-2xl transition-all border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/30 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+            title="Сделать фото"
+          >
+            <Camera className="w-5 h-5" />
+          </button>
 
-            <AnimatePresence mode="wait">
-              {prompt === '' && (
-                <motion.div key={examplePrompts[promptIndex]} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute inset-y-0 left-12 right-12 flex items-center pointer-events-none">
-                  <span className="text-slate-400 dark:text-white/30 text-sm truncate flex-grow">{examplePrompts[promptIndex]}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <div className="flex-grow relative bg-slate-50 dark:bg-white/5 rounded-2xl border border-transparent focus-within:border-indigo-500/30 transition-all flex items-center px-4">
             <textarea
               ref={inputRef}
               value={prompt}
-              onChange={(e) => { setPrompt(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`; }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } else if (e.key === 'Tab' && !prompt) { e.preventDefault(); setPrompt(examplePrompts[promptIndex]); } }}
-              rows={1}
-              className="w-full bg-transparent text-slate-900 dark:text-white outline-none resize-none py-2.5 text-sm font-medium placeholder-transparent no-scrollbar"
-              style={{ height: '24px', minHeight: '24px' }}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
+              placeholder={mode === 'cameo' ? (selectedProfileId ? "Что делает этот герой?" : "Сначала выберите героя") : "Опишите ваше видео..."}
+              className="w-full bg-transparent text-slate-900 dark:text-white outline-none resize-none py-3 text-sm font-semibold h-[48px] min-h-[48px] placeholder:text-slate-400 dark:placeholder:text-white/20"
             />
-            {prompt === '' && <div onClick={() => setPrompt(examplePrompts[promptIndex])} className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-slate-300 dark:border-white/10 bg-white/50 dark:bg-white/5 text-[9px] font-mono text-slate-400 dark:text-white/40 cursor-pointer hover:bg-white dark:hover:bg-white/10">TAB</div>}
           </div>
-
-          <div className="flex items-center gap-2 shrink-0 h-[44px]">
-             <AnimatePresence>
-                {mode === 'cameo' && selectedCameoIds.length > 0 && (
-                    <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 'auto', opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="flex -space-x-2 pl-2">
-                        {selectedCameoIds.slice(0, 2).map((id) => {
-                             const p = profiles.find(pr => pr.id === id);
-                             return p ? <img key={id} src={p.imageUrl} className="w-8 h-8 rounded-full border-2 border-white dark:border-[#111] object-cover" /> : null;
-                        })}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-            <button onClick={handleSubmit} disabled={!prompt.trim()} className={`w-11 h-11 flex items-center justify-center rounded-full transition-all duration-300 ${prompt.trim() ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:scale-110' : 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-white/20 cursor-not-allowed'}`}>
-              <ArrowUp className="w-5 h-5" />
-            </button>
-          </div>
+          <button 
+            onClick={handleSubmit} 
+            disabled={!prompt.trim() || (mode === 'cameo' && !selectedProfileId)} 
+            className={`w-11 h-11 flex items-center justify-center rounded-2xl transition-all ${prompt.trim() && (mode === 'text' || selectedProfileId) ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 active:scale-90' : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-white/20 cursor-not-allowed'}`}
+          >
+            <ArrowUp className="w-5 h-5" />
+          </button>
         </div>
       </motion.div>
     </div>

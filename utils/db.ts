@@ -1,13 +1,15 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 
 const DB_NAME = 'VeoCameoDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped version for new store
 const STORES = {
   FEED: 'feed',
-  PROFILES: 'profiles'
+  PROFILES: 'profiles',
+  INTEGRATIONS: 'integrations'
 };
 
 export const initDB = (): Promise<IDBDatabase> => {
@@ -24,6 +26,9 @@ export const initDB = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains(STORES.PROFILES)) {
         db.createObjectStore(STORES.PROFILES, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORES.INTEGRATIONS)) {
+        db.createObjectStore(STORES.INTEGRATIONS, { keyPath: 'id' });
       }
     };
   });

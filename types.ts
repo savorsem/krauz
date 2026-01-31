@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -20,6 +21,14 @@ export enum AppState {
   LOADING,
   SUCCESS,
   ERROR,
+}
+
+export enum AppView {
+  FEED = 'feed',
+  AVATARS = 'avatars',
+  HISTORY = 'history',
+  SETTINGS = 'settings',
+  INTEGRATIONS = 'integrations'
 }
 
 export enum VeoModel {
@@ -85,8 +94,35 @@ export interface FeedPost {
   referenceImageBase64?: string;
 }
 
+export interface CameoImage {
+  id: string;
+  url: string; // Data URL
+  base64: string;
+}
+
 export interface CameoProfile {
   id: string;
   name: string;
-  imageUrl: string; // Base64 string for offline capability
+  images: CameoImage[]; // Multiple images for better character understanding
+}
+
+export enum IntegrationType {
+    DISCORD = 'discord',
+    YOUTUBE = 'youtube',
+    TIKTOK = 'tiktok',
+    INSTAGRAM = 'instagram',
+    ZAPIER = 'zapier',
+    WEBHOOK = 'webhook'
+}
+
+export interface IntegrationConfig {
+    id: IntegrationType;
+    name: string;
+    isEnabled: boolean;
+    config: {
+        webhookUrl?: string; // For Discord, Zapier, Webhook
+        accessToken?: string; // For others (mocked for now)
+        channelId?: string;
+    };
+    lastSync?: number;
 }

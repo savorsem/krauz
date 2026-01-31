@@ -1,9 +1,8 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React from 'react';
+import * as React from 'react';
 
 export const VeoLogo: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>

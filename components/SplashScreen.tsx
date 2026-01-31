@@ -2,7 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useEffect, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SplashScreenProps {
