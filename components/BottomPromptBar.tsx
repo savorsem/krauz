@@ -171,7 +171,13 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate, defaultMo
     if (!files || files.length === 0) return;
 
     const readFile = (file: File): Promise<CameoImage> => {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
+            // Ensure file is actually a File/Blob instance
+            if (!(file instanceof File) && !(file instanceof Blob)) {
+                reject(new Error('Invalid file type'));
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = () => {
                 const url = reader.result as string;
@@ -181,6 +187,7 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate, defaultMo
                     base64: url.split(',')[1]
                 });
             };
+            reader.onerror = () => reject(reader.error);
             reader.readAsDataURL(file);
         });
     };
