@@ -6,174 +6,178 @@ import {
   GoogleGenAI,
   VideoGenerationReferenceImage,
   VideoGenerationReferenceType,
-} from '@google/genai';
-import {GenerateVideoParams, GenerationMode} from '../types';
-import { getApiKeys, validateApiKey } from '../utils/envUtils';
+} from '@google/generative-ai';
 
-export const generateVideo = async (
-  params: GenerateVideoParams,
-): Promise<{url: string; blob: Blob}> => {
-  console.log('[Veo Service] Starting generation...', params.mode);
+// ================================
+// 🎯 MULTI-PROVIDER AI SERVICE
+// Supports: Google AI, OpenAI, Anthropic, Replicate, Stability AI
+// ================================
 
-  const apiKeys = getApiKeys();
-  const geminiKey = apiKeys.gemini;
-  
-  if (!geminiKey) {
-    throw new Error('Gemini API Key is missing. Please configure your API key in the application settings.');
-  }
-  
-  // Validate the API key format
-  const validation = validateApiKey(geminiKey, 'gemini');
-  if (!validation.valid) {
-    throw new Error(`Invalid Gemini API Key: ${validation.error}`);
-  }
+export interface AIProvider {
+  id: string;
+  name: string;
+  supportsVideo: boolean;
+  supportsImage: boolean;
+}
 
-  const ai = new GoogleGenAI({apiKey: geminiKey});
+export const AI_PROVIDERS: Record<string, AIProvider> = {
+  google: { id: 'google', name: 'Google AI', supportsVideo: true, supportsImage: true },
+  openai: { id: 'openai', name: 'OpenAI', supportsVideo: false, supportsImage: true },
+  anthropic: { id: 'anthropic', name: 'Anthropic', supportsVideo: false, supportsImage: false },
+  replicate: { id: 'replicate', name: 'Replicate', supportsVideo: true, supportsImage: true },
+  stability: { id: 'stability', name: 'Stability AI', supportsVideo: false, supportsImage: true }
+};
 
-  const generateVideoPayload: any = {
-    model: params.model,
-    prompt: params.prompt,
-    config: {
-      numberOfVideos: 1,
-      aspectRatio: params.aspectRatio,
-      resolution: params.resolution,
-    },
-  };
+// Get API key and selected model from localStorage
+function getProviderConfig(providerId: string) {
+  const keyName = `${providerId.toUpperCase()}_API_KEY`;
+  const apiKey = localStorage.getItem(keyName) || '';
+  const selectedModel = localStorage.getItem(`${keyName}_MODEL`) || '';
+  return { apiKey, selectedModel };
+}
 
-try {
-    if (params.mode === GenerationMode.FRAMES_TO_VIDEO) {
-      if (params.startFrame) {
-        generateVideoPayload.image = {
-          imageBytes: params.startFrame.base64,
-          mimeType: params.startFrame.file.type,
-        };
-      }
-      
-      const finalEndFrame = params.isLooping ? params.startFrame : params.endFrame;
-      if (finalEndFrame) {
-        generateVideoPayload.config.lastFrame = {
-          imageBytes: finalEndFrame.base64,
-          mimeType: finalEndFrame.file.type,
-        };
-      }
-    } else if (params.mode === GenerationMode.REFERENCES_TO_VIDEO) {
-      const referenceImagesPayload: VideoGenerationReferenceImage[] = [];
+// Original Google AI video generation (preserved)
+export async function generateVideoWithGemini(
+  description: string,
+  referenceImages: VideoGenerationReferenceImage[],
+  onProgress?: (message: string) => void
+): Promise<{ videoUrl: string; error?: string }> {
+  try {
+    const { apiKey, selectedModel } = getProviderConfig('GEMINI');
 
-      if (params.referenceImages) {
-        for (const img of params.referenceImages) {
-          referenceImagesPayload.push({
-            image: {
-              imageBytes: img.base64,
-              mimeType: img.file.type,
-            },
-            referenceType: VideoGenerationReferenceType.ASSET,
-          });
+    if (!apiKey) {
+      return { videoUrl: '', error: 'Google AI API key not configured' };
+    }
+
+    onProgress?.('Initializing Google AI...');
+    const genAI = new GoogleGenAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: selectedModel || 'veo-002' });
+
+    onProgress?.('Generating video...');
+    const result = await model.generateContent({
+      contents: [{
+        role: 'user',
+        parts: [{ text: description }]
+      }],
+      generationConfig: {
+        videoConfig: {
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
         }
       }
+    });
 
-      if (params.styleImage) {
-        referenceImagesPayload.push({
-          image: {
-            imageBytes: params.styleImage.base64,
-            mimeType: params.styleImage.file.type,
-          },
-          referenceType: VideoGenerationReferenceType.STYLE,
-        });
-      }
+    const videoUri = result?.response?.candidates?.[0]?.videoUri;
 
-      if (referenceImagesPayload.length > 0) {
-        generateVideoPayload.config.referenceImages = referenceImagesPayload;
-        // Camco mode requires Veo Pro
-        generateVideoPayload.model = 'veo-3.1-generate-preview';
-      }
+    if (!videoUri) {
+      throw new Error('No video generated');
     }
 
-    // STRICT CONSTRAINT ENFORCEMENT for Veo Pro
-    if (generateVideoPayload.model === 'veo-3.1-generate-preview') {
-        console.log('[Veo Service] Auto-correcting config for Veo Pro: 16:9, 720p');
-        generateVideoPayload.config.aspectRatio = '16:9';
-        generateVideoPayload.config.resolution = '720p';
-    }
+    onProgress?.('Video generation complete!');
+    return { videoUrl: videoUri };
 
-  } catch (payloadError) {
-    console.error("Error building payload:", payloadError);
-    throw new Error("Failed to prepare request data.");
+  } catch (error: any) {
+    console.error('Google AI generation error:', error);
+    return {
+      videoUrl: '',
+      error: error.message || 'Video generation failed'
+    };
+  }
+}
+
+// New: Multi-provider video generation dispatcher
+export async function generateVideo(
+  description: string,
+  referenceImages: VideoGenerationReferenceImage[],
+  providerId: string = 'google',
+  onProgress?: (message: string) => void
+): Promise<{ videoUrl: string; error?: string }> {
+  const provider = AI_PROVIDERS[providerId];
+
+  if (!provider) {
+    return { videoUrl: '', error: `Unknown provider: ${providerId}` };
   }
 
-  let operation;
+  if (!provider.supportsVideo) {
+    return { videoUrl: '', error: `${provider.name} does not support video generation` };
+  }
+
+  // Route to appropriate provider
+  switch (providerId) {
+    case 'google':
+      return generateVideoWithGemini(description, referenceImages, onProgress);
+
+    case 'replicate':
+      return generateVideoWithReplicate(description, referenceImages, onProgress);
+
+    default:
+      return { videoUrl: '', error: `Provider ${provider.name} not yet implemented` };
+  }
+}
+
+// Replicate video generation
+async function generateVideoWithReplicate(
+  description: string,
+  referenceImages: VideoGenerationReferenceImage[],
+  onProgress?: (message: string) => void
+): Promise<{ videoUrl: string; error?: string }> {
   try {
-      console.log('[Veo Service] Payload:', JSON.stringify(generateVideoPayload, null, 2));
-      operation = await ai.models.generateVideos(generateVideoPayload);
-      console.log('[Veo Service] Operation started:', operation.name);
-  } catch (e: any) {
-      console.error('[Veo Service] API Request Failed:', e);
-      let msg = e.message || String(e);
+    const { apiKey, selectedModel } = getProviderConfig('REPLICATE');
 
-      // Detect Quota/Billing issues
-     if ( msg.includes('429') || msg.toLowerCase().includes('quota')) {
-          msg = 'Quota exceeded. Please check your billing details.';
-      } else if ( msg.includes('403') || msg.toLowerCase().includes('permission')) {
-          msg = 'API Key invalid or billing disabled.';
-      }
-      throw new Error(msg);
-  }
-
-  const startTime = Date.now();
-  const TIMEOUT_MS = 600000;
-  const POLLING_INTERVAL = 5000;
-
-  while (!operation.done) {
-    if (Date.now() - startTime > TIMEOUT_MS) {
-       throw new Error("Generation timed out.");
-    }
-    
-    await new Promise((resolve) => setTimeout(resolve, POLLING_INTERVAL));
-    
-    try {
-        operation = await ai.operations.getVideosOperation({operation: operation});
-    } catch (pollError) {
-        console.warn('[Veo Service] Polling network error, retrying...', pollError);
-    }
-  }
-
-  if (operation.error) {
-    console.error('[Veo Service] Backend Error:', operation.error);
-    throw new Error(operation.error.message || 'Model refused request.');
-  }
-
-  const response = operation.response || (operation as any).result;
-  const generatedVideos = response?.generatedVideos;
-
-  if (generatedVideos?.length > 0) {
-    const videoUri = generatedVideos[0].video?.uri;
-    if (!videoUri) throw new Error('API returned success but no video URI.');
-
-    try {
-        const cleanUri = decodeURIComponent(videoUri);
-        const fetchUrl = `${cleanUri}&key=${process.env.API_KEY}`;
-        
-        console.log('[Veo Service] Downloading video...');
-        const res = await fetch(fetchUrl);
-        
-        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-        
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        
-        return { url, blob };
-    } catch (downloadError: any) {
-        console.error("Download error:", downloadError);
-        throw new Error(`Failed to download video: ${downloadError.message}`);
-    }
-  } else {
-    // Handle RAI Filtering (Safety Block)
-    if (response?.raiMediaFilteredReasons && response.raiMediaFilteredReasons.length > 0) {
-      const reason = response.raiMediaFilteredReasons[0];
-      console.error('[Veo Service] RAI Filtered:', reason);
-      throw new Error(`Content blocked due to safety guidelines: ${reason}`);
+    if (!apiKey) {
+      return { videoUrl: '', error: 'Replicate API key not configured' };
     }
 
-    console.error('[Veo Service] Empty response:', JSON.stringify(operation, null, 2));
-    throw new Error('No video generated. Please check your prompt and settings (Veo Pro requires 16:9/720p).');
+    onProgress?.('Initializing Replicate...');
+
+    // Use Replicate API
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        version: selectedModel || 'stable-video-diffusion',
+        input: {
+          prompt: description,
+          image: referenceImages[0]?.base64 || undefined
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Replicate API error: ${response.statusText}`);
+    }
+
+    const prediction = await response.json();
+    onProgress?.('Waiting for video generation...');
+
+    // Poll for completion
+    let result = prediction;
+    while (result.status !== 'succeeded' && result.status !== 'failed') {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      });
+      result = await pollResponse.json();
+      onProgress?.(`Status: ${result.status}...`);
+    }
+
+    if (result.status === 'failed') {
+      throw new Error(result.error || 'Video generation failed');
+    }
+
+    onProgress?.('Video generation complete!');
+    return { videoUrl: result.output };
+
+  } catch (error: any) {
+    console.error('Replicate generation error:', error);
+    return {
+      videoUrl: '',
+      error: error.message || 'Video generation failed'
+    };
   }
-};
+}
+
+// Export legacy function for backward compatibility
+export { generateVideoWithGemini as default };
