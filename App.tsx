@@ -5,7 +5,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import * as React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import EnhancedSettingsDrawer from './components/EnhancedSettingsDrawer';
+import ApiKeyDialog from './components/ApiKeyDialog';
 import BottomPromptBar from './components/BottomPromptBar';
 import VideoCard from './components/VideoCard';
 import SplashScreen from './components/SplashScreen';
@@ -14,7 +14,7 @@ import { VideoEditor } from './components/VideoEditor';
 import { generateVideo } from './services/geminiService';
 import { FeedPost, GenerateVideoParams, PostStatus, AppView, CameoProfile, CameoImage, VeoModel, IntegrationConfig, IntegrationType } from './types';
 import { saveToDB, getAllFromDB, deleteFromDB, STORES_CONST } from './utils/db';
-import { X, Film, AlertCircle, Download, Menu, Check, Settings } from 'lucide-react';
+import { X, Film, AlertCircle, Download, Menu, Check } from 'lucide-react';
 import { HistoryView, AvatarsView, SettingsView, IntegrationsView } from './components/Views';
 
 const App: React.FC = () => {
@@ -24,7 +24,6 @@ const App: React.FC = () => {
   const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
   
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [errorToast, setErrorToast] = useState<{message: string, isQuota: boolean} | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   
@@ -399,7 +398,7 @@ const App: React.FC = () => {
         {loadingApp && <SplashScreen onComplete={handleSplashComplete} />}
       </AnimatePresence>
 
-      {showApiKeyDialog && <EnhancedSettingsDrawer isOpen={showApiKeyDialog} onClose={() => setShowApiKeyDialog(false)} />}
+      {showApiKeyDialog && <ApiKeyDialog onContinue={handleApiKeyDialogContinue} />}
       <SideMenu 
         isOpen={isMenuOpen} 
         onClose={() => setIsMenuOpen(false)} 
@@ -417,27 +416,11 @@ const App: React.FC = () => {
             >
                 <Menu className="w-5 h-5 text-slate-900 dark:text-white" />
             </button>
-
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-3 hover:bg-white/10 rounded-full transition-all active:scale-95"
-            aria-label="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
             <h1 className="text-sm font-black uppercase tracking-[0.2em] hidden sm:block opacity-60 mix-blend-difference text-white">
                 {currentView === AppView.FEED ? 'Cameo Studio' : currentView}
             </h1>
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
-            <button
-                onClick={() => setShowApiKeyDialog(true)}
-                className="w-10 h-10 bg-white/70 dark:bg-black/30 backdrop-blur-xl rounded-xl flex items-center justify-center hover:bg-white dark:hover:bg-white/10 transition-colors border border-slate-200 dark:border-white/10 shadow-sm group"
-                aria-label="API Settings"
-                title="API Settings"
-            >
-                <Settings className="w-5 h-5 text-slate-900 dark:text-white group-hover:rotate-90 transition-all duration-300" />
-            </button>
             {deferredPrompt && (
                 <motion.button 
                     initial={{ scale: 0.9, opacity: 0 }}
@@ -591,12 +574,6 @@ const App: React.FC = () => {
         />
       )}
     </div>
-
-      {/* Enhanced Settings Drawer */}
-      <EnhancedSettingsDrawer
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-      />
   );
 };
 
