@@ -188,8 +188,9 @@ const BottomPromptBar: React.FC<BottomPromptBarProps> = ({ onGenerate, defaultMo
     if (files.length > 0) {
         const newImages: CameoImage[] = [];
         for (let i = 0; i < files.length; i++) {
-            if(files[i].type.startsWith('image/')) {
-                newImages.push(await readFile(files[i]));
+            const file = files[i];
+            if(file instanceof File && file.type.startsWith('image/')) {
+                newImages.push(await readFile(file));
             }
         }
 
