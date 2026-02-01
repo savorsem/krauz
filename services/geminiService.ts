@@ -2,11 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import {
-  GoogleGenAI,
-  VideoGenerationReferenceImage,
-  VideoGenerationReferenceType,
-} from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 // ================================
 // 🎯 MULTI-PROVIDER AI SERVICE
@@ -28,6 +24,18 @@ export const AI_PROVIDERS: Record<string, AIProvider> = {
   stability: { id: 'stability', name: 'Stability AI', supportsVideo: false, supportsImage: true }
 };
 
+// Reference image types for backward compatibility
+export interface VideoGenerationReferenceImage {
+  base64?: string;
+  url?: string;
+  type?: string;
+}
+
+export enum VideoGenerationReferenceType {
+  FIRST_FRAME = 'FIRST_FRAME',
+  LAST_FRAME = 'LAST_FRAME'
+}
+
 // Get API key and selected model from localStorage
 function getProviderConfig(providerId: string) {
   const keyName = `${providerId.toUpperCase()}_API_KEY`;
@@ -36,7 +44,7 @@ function getProviderConfig(providerId: string) {
   return { apiKey, selectedModel };
 }
 
-// Original Google AI video generation (preserved)
+// Updated Google AI video generation using new SDK
 export async function generateVideoWithGemini(
   description: string,
   referenceImages: VideoGenerationReferenceImage[],
@@ -50,23 +58,22 @@ export async function generateVideoWithGemini(
     }
 
     onProgress?.('Initializing Google AI...');
-    const genAI = new GoogleGenAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: selectedModel || 'veo-002' });
+    const ai = new GoogleGenAI({ apiKey });
 
     onProgress?.('Generating video...');
-    const result = await model.generateContent({
-      contents: [{
-        role: 'user',
-        parts: [{ text: description }]
-      }],
-      generationConfig: {
+    
+    // New SDK uses models.generateContent
+    const response = await ai.models.generateContent({
+      model: selectedModel || 'veo-002',
+      contents: description,
+      config: {
         videoConfig: {
-          referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined
         }
       }
     });
 
-    const videoUri = result?.response?.candidates?.[0]?.videoUri;
+    const videoUri = response?.candidates?.[0]?.videoUri;
 
     if (!videoUri) {
       throw new Error('No video generated');
