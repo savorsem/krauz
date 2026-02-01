@@ -102,7 +102,12 @@ export const AvatarsView: React.FC<AvatarsViewProps> = ({ profiles, setProfiles,
                         });
                         resolve();
                     };
-                    reader.readAsDataURL(file);
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    if (file instanceof File || file instanceof Blob) {
+                        reader.readAsDataURL(file);
+                    } else {
+                        reject(new Error('Invalid file type'));
+                    }
                 });
             }));
         } catch (e) {
