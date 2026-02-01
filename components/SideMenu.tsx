@@ -4,9 +4,8 @@
 */
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Film, Users, Settings, Key, Github, Sparkles, Zap } from 'lucide-react';
+import { X, Film, Users, Settings, Key, Github, Sparkles, Zap, ChevronRight } from 'lucide-react';
 import { AppView } from '../types';
-import EnhancedSettingsDrawer from './EnhancedSettingsDrawer';
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -22,12 +21,10 @@ const MENU_ITEMS = [
   { id: AppView.SETTINGS, label: 'Настройки', icon: Settings, gradient: 'from-slate-500 to-gray-500' },
 ];
 
-const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, currentView, onNavigate, onOpenKeySelector }) => {
-  const [showEnhancedSettings, setShowEnhancedSettings] = React.useState(false);
-
-  const handleAPISettingsClick = () => {
+const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, currentView, onNavigate }) => {
+  const handleSettingsClick = () => {
+    onNavigate(AppView.SETTINGS);
     onClose();
-    setShowEnhancedSettings(true);
   };
 
   return (
@@ -72,10 +69,10 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, currentView, onNav
               </div>
             </div>
 
-            {/* API Settings - Highlighted */}
+            {/* Quick Access to Settings */}
             <div className="p-4">
               <button
-                onClick={handleAPISettingsClick}
+                onClick={handleSettingsClick}
                 className="w-full group relative overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-95"
               >
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -84,10 +81,10 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, currentView, onNav
                     <Key className="w-5 h-5" />
                   </div>
                   <div className="flex-1 text-left">
-                    <div className="font-bold text-sm">API Settings</div>
-                    <div className="text-[10px] opacity-80 font-medium">Управление ключами</div>
+                    <div className="font-bold text-sm">Настройки API</div>
+                    <div className="text-[10px] opacity-80 font-medium">Ключи и провайдеры</div>
                   </div>
-                  <Zap className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+                  <ChevronRight className="w-4 h-4 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                 </div>
               </button>
             </div>
@@ -154,12 +151,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, currentView, onNav
               </div>
             </div>
           </motion.div>
-
-          {/* Enhanced Settings Drawer */}
-          <EnhancedSettingsDrawer
-            isOpen={showEnhancedSettings}
-            onClose={() => setShowEnhancedSettings(false)}
-          />
         </>
       )}
     </AnimatePresence>
