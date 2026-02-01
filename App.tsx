@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
   
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [errorToast, setErrorToast] = useState<{message: string, isQuota: boolean} | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   
@@ -416,6 +417,14 @@ const App: React.FC = () => {
             >
                 <Menu className="w-5 h-5 text-slate-900 dark:text-white" />
             </button>
+
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-3 hover:bg-white/10 rounded-full transition-all active:scale-95"
+            aria-label="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
             <h1 className="text-sm font-black uppercase tracking-[0.2em] hidden sm:block opacity-60 mix-blend-difference text-white">
                 {currentView === AppView.FEED ? 'Cameo Studio' : currentView}
             </h1>
@@ -582,6 +591,12 @@ const App: React.FC = () => {
         />
       )}
     </div>
+
+      {/* Enhanced Settings Drawer */}
+      <EnhancedSettingsDrawer
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
   );
 };
 
