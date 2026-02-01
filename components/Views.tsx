@@ -504,139 +504,430 @@ export const AvatarsView: React.FC<AvatarsViewProps> = ({ profiles, setProfiles,
     );
 };
 
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Moon, Sun, Zap, Sparkles, Key, Eye, EyeOff, Plus, X, Check, AlertCircle, Trash2, Info, Lock, Shield, Palette } from 'lucide-react';
+import { VeoModel } from '../types';
+
+// API Provider configuration
+const API_PROVIDERS = [
+  { id: 'google_ai', name: 'Google AI', icon: '🤖', color: 'bg-blue-500' },
+  { id: 'openai', name: 'OpenAI', icon: '🧠', color: 'bg-green-500' },
+  { id: 'anthropic', name: 'Anthropic', icon: '💜', color: 'bg-purple-500' },
+  { id: 'replicate', name: 'Replicate', icon: '🎨', color: 'bg-pink-500' },
+  { id: 'stability_ai', name: 'Stability AI', icon: '⚡', color: 'bg-orange-500' },
+];
+
 export const SettingsView = ({ darkMode, setDarkMode, defaultModel, setDefaultModel, handleOpenKeySelector }: any) => {
-   const [storageUsage, setStorageUsage] = useState<string>('Calculation...');
-   
-   React.useEffect(() => {
-       const calculateStorage = async () => {
-           try {
-               let total = 0;
-               const estimate = await navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
-               if (estimate && estimate.usage) {
-                   total = estimate.usage;
-               } else {
-                   const dbs = await window.indexedDB.databases();
-                   total = 1024 * 1024 * 5; 
-               }
-               setStorageUsage((total / (1024 * 1024)).toFixed(2) + ' MB');
-           } catch (e) {
-               setStorageUsage('Unknown');
-           }
-       };
-       calculateStorage();
-   }, []);
+  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'appearance'>('general');
+  const [storageUsage, setStorageUsage] = useState<string>('Расчет...');
 
-   const clearData = async (type: 'all' | 'cache') => {
-       if (type === 'all') {
-           if (!confirm('Это полностью удалит всех персонажей, историю и настройки. Продолжить?')) return;
-           const dbs = await window.indexedDB.databases();
-           dbs.forEach(db => window.indexedDB.deleteDatabase(db.name!));
-           localStorage.clear();
-           window.location.reload();
-       } else {
-           if ('caches' in window) {
-               const keys = await caches.keys();
-               await Promise.all(keys.map(key => caches.delete(key)));
-               alert('Кэш очищен');
-               window.location.reload();
-           }
-       }
-   };
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<Record<string, {enabled: boolean, key: string}>>(() => {
+    try {
+      const stored = localStorage.getItem('cameo_api_keys');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
 
-   return (
-    <div className="w-full max-w-3xl mx-auto p-4 md:p-8 pb-32">
-        <Header title="Настройки" icon={Settings} />
-        
-        {/* Appearance */}
-        <section className="bg-white border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl p-6 mb-4">
-            <h3 className="text-sm font-bold uppercase text-slate-400 dark:text-white/40 mb-4 tracking-wider">Интерфейс</h3>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-500"><Moon className="w-5 h-5" /></div>
-                    <span className="text-sm font-medium text-slate-800 dark:text-white">Темная тема</span>
-                </div>
-                <button 
-                    onClick={() => setDarkMode(!darkMode)}
-                    className={`w-12 h-7 rounded-full transition-colors relative ${darkMode ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-white/20'}`}
-                >
-                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform shadow-sm ${darkMode ? 'left-6' : 'left-1'}`} />
-                </button>
-            </div>
-        </section>
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [customProviders, setCustomProviders] = useState<Array<{id: string, name: string}>>(() => {
+    try {
+      const stored = localStorage.getItem('cameo_custom_providers');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
-        {/* Generation Config */}
-        <section className="bg-white border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl p-6 mb-4">
-            <h3 className="text-sm font-bold uppercase text-slate-400 dark:text-white/40 mb-4 tracking-wider">Генерация AI</h3>
-            <div className="space-y-4">
-                <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-white mb-2 block">Модель по умолчанию</label>
-                    <div className="flex gap-2">
-                            <button onClick={() => setDefaultModel(VeoModel.VEO_FAST)} className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase border transition-all flex flex-col items-center gap-1 ${defaultModel === VeoModel.VEO_FAST ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500 dark:text-white/60'}`}>
-                                <Zap className="w-4 h-4" />
-                                Veo Fast
-                            </button>
-                            <button onClick={() => setDefaultModel(VeoModel.VEO)} className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase border transition-all flex flex-col items-center gap-1 ${defaultModel === VeoModel.VEO ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500 dark:text-white/60'}`}>
-                                <Sparkles className="w-4 h-4" />
-                                Veo Pro
-                            </button>
-                    </div>
-                </div>
-            </div>
-        </section>
+  React.useEffect(() => {
+    const calculateStorage = async () => {
+      try {
+        let total = 0;
+        const estimate = await navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
+        if (estimate && estimate.usage) {
+          total = estimate.usage;
+        } else {
+          total = 1024 * 1024 * 5;
+        }
+        setStorageUsage((total / (1024 * 1024)).toFixed(2) + ' MB');
+      } catch (e) {
+        setStorageUsage('Неизвестно');
+      }
+    };
+    calculateStorage();
+  }, []);
 
-        {/* API / Account */}
-        <section className="bg-white border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl p-6 mb-4">
-            <h3 className="text-sm font-bold uppercase text-slate-400 dark:text-white/40 mb-4 tracking-wider">Аккаунт Google Cloud</h3>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-500/10 rounded-lg text-green-500"><Key className="w-5 h-5" /></div>
-                    <div>
-                        <p className="text-sm font-bold text-slate-800 dark:text-white">API Key</p>
-                        <p className="text-xs text-slate-500 dark:text-white/40">Подключен через AI Studio</p>
-                    </div>
-                </div>
-                <button onClick={handleOpenKeySelector} className="px-4 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 rounded-xl text-xs font-bold text-slate-700 dark:text-white transition-colors">
-                    Сменить
-                </button>
-            </div>
-        </section>
+  const saveApiKeys = (newKeys: Record<string, {enabled: boolean, key: string}>) => {
+    setApiKeys(newKeys);
+    localStorage.setItem('cameo_api_keys', JSON.stringify(newKeys));
+  };
 
-        {/* Storage / Danger Zone */}
-        <section className="bg-white border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl p-6 mb-4">
-            <h3 className="text-sm font-bold uppercase text-slate-400 dark:text-white/40 mb-4 tracking-wider">Хранилище и Данные</h3>
-            
-            <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-black/20 rounded-xl border border-slate-100 dark:border-white/5">
-                <HardDrive className="w-8 h-8 text-slate-300 dark:text-white/20" />
-                <div>
-                    <p className="text-xs text-slate-400 dark:text-white/40 font-bold uppercase">Использовано</p>
-                    <p className="text-xl font-mono text-slate-800 dark:text-white">{storageUsage}</p>
-                </div>
-            </div>
+  const toggleProvider = (providerId: string) => {
+    const current = apiKeys[providerId] || { enabled: false, key: '' };
+    saveApiKeys({
+      ...apiKeys,
+      [providerId]: { ...current, enabled: !current.enabled }
+    });
+  };
 
-            <div className="space-y-3">
-                <button onClick={() => clearData('cache')} className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors group">
-                    <div className="flex items-center gap-3">
-                        <Database className="w-4 h-4 text-slate-500 dark:text-white/60" />
-                        <span className="text-sm font-medium text-slate-700 dark:text-white">Очистить кэш приложения</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 dark:text-white/20 group-hover:text-slate-500 dark:group-hover:text-white transition-colors" />
-                </button>
-                
-                <button onClick={() => clearData('all')} className="w-full flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 rounded-xl transition-colors group border border-red-100 dark:border-red-500/20">
-                    <div className="flex items-center gap-3">
-                        <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
-                        <span className="text-sm font-bold text-red-500 dark:text-red-400">Сбросить все данные</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-red-300 dark:text-red-400/40 group-hover:text-red-500 dark:group-hover:text-red-400 transition-colors" />
-                </button>
-            </div>
-        </section>
+  const updateApiKey = (providerId: string, key: string) => {
+    const current = apiKeys[providerId] || { enabled: false, key: '' };
+    saveApiKeys({
+      ...apiKeys,
+      [providerId]: { ...current, key }
+    });
+  };
 
-        <div className="text-center pt-8 pb-4">
-             <p className="text-xs text-slate-400 dark:text-white/20 font-mono">Cameo Studio v1.2.0 • Build 2024</p>
+  const addCustomProvider = () => {
+    const name = prompt('Имя провайдера:');
+    if (name) {
+      const newProvider = { id: `custom_${Date.now()}`, name };
+      const updated = [...customProviders, newProvider];
+      setCustomProviders(updated);
+      localStorage.setItem('cameo_custom_providers', JSON.stringify(updated));
+    }
+  };
+
+  const removeCustomProvider = (id: string) => {
+    const updated = customProviders.filter(p => p.id !== id);
+    setCustomProviders(updated);
+    localStorage.setItem('cameo_custom_providers', JSON.stringify(updated));
+
+    // Remove API key too
+    const newKeys = { ...apiKeys };
+    delete newKeys[id];
+    saveApiKeys(newKeys);
+  };
+
+  const clearAllData = async () => {
+    if (!confirm('Это полностью удалит всех персонажей, историю и настройки. Продолжить?')) return;
+    const dbs = await window.indexedDB.databases();
+    dbs.forEach(db => window.indexedDB.deleteDatabase(db.name!));
+    localStorage.clear();
+    window.location.reload();
+  };
+
+  const TABS = [
+    { id: 'general', label: 'Основные', icon: Sparkles },
+    { id: 'api', label: 'API Ключи', icon: Key },
+    { id: 'appearance', label: 'Внешний вид', icon: Palette },
+  ];
+
+  return (
+    <div className="w-full min-h-full pb-40 pt-20 px-4 max-w-4xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6"
+      >
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Настройки</h1>
+          <p className="text-sm text-slate-500 dark:text-white/60">Управление приложением и API ключами</p>
         </div>
+
+        {/* Tabs */}
+        <div className="glass border border-slate-200 dark:border-white/10 rounded-2xl p-2 flex gap-2">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl transition-all font-semibold text-sm ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow-lg scale-105'
+                  : 'text-slate-600 dark:text-white/60 hover:bg-white/50 dark:hover:bg-white/5'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'general' && (
+            <motion.div
+              key="general"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-4"
+            >
+              {/* Model Selection */}
+              <div className="glass border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5" />
+                  Модель по умолчанию
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setDefaultModel(VeoModel.VEO_FAST)}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      defaultModel === VeoModel.VEO_FAST
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
+                        : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    <Zap className={`w-6 h-6 mx-auto mb-2 ${defaultModel === VeoModel.VEO_FAST ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <div className="font-bold text-sm">Veo Fast</div>
+                    <div className="text-xs text-slate-500 dark:text-white/60 mt-1">Быстрая генерация</div>
+                  </button>
+                  <button
+                    onClick={() => setDefaultModel(VeoModel.VEO)}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      defaultModel === VeoModel.VEO
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-500/10'
+                        : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    <Sparkles className={`w-6 h-6 mx-auto mb-2 ${defaultModel === VeoModel.VEO ? 'text-purple-600' : 'text-slate-400'}`} />
+                    <div className="font-bold text-sm">Veo Pro</div>
+                    <div className="text-xs text-slate-500 dark:text-white/60 mt-1">Высокое качество</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Storage */}
+              <div className="glass border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Хранилище</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm text-slate-600 dark:text-white/60">Использовано:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{storageUsage}</span>
+                </div>
+                <button
+                  onClick={clearAllData}
+                  className="w-full py-3 px-4 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Очистить все данные
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'api' && (
+            <motion.div
+              key="api"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-4"
+            >
+              {/* Info Banner */}
+              <div className="glass border border-indigo-500/20 rounded-2xl p-4 flex items-start gap-3">
+                <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+                <div className="text-sm text-slate-700 dark:text-white/80">
+                  <div className="font-semibold mb-1">Безопасное хранение</div>
+                  <div className="text-xs text-slate-500 dark:text-white/60">
+                    Все ключи хранятся локально в вашем браузере. Мы не отправляем их на сервер.
+                  </div>
+                </div>
+              </div>
+
+              {/* API Providers */}
+              {API_PROVIDERS.map(provider => {
+                const config = apiKeys[provider.id] || { enabled: false, key: '' };
+                const showKey = showKeys[provider.id] || false;
+
+                return (
+                  <div key={provider.id} className="glass border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 ${provider.color} rounded-xl flex items-center justify-center text-2xl shadow-lg`}>
+                          {provider.icon}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white">{provider.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-white/60">
+                            {config.enabled ? 'Активен' : 'Неактивен'}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleProvider(provider.id)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${
+                          config.enabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-white/20'
+                        }`}
+                      >
+                        <motion.div
+                          animate={{ x: config.enabled ? 24 : 0 }}
+                          className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md"
+                        />
+                      </button>
+                    </div>
+
+                    {config.enabled && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <div className="relative">
+                          <input
+                            type={showKey ? 'text' : 'password'}
+                            value={config.key}
+                            onChange={(e) => updateApiKey(provider.id, e.target.value)}
+                            placeholder="Введите API ключ..."
+                            className="w-full px-4 py-3 pr-12 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-mono focus:border-indigo-500 dark:focus:border-indigo-400 outline-none transition-colors"
+                          />
+                          <button
+                            onClick={() => setShowKeys(prev => ({ ...prev, [provider.id]: !showKey }))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors"
+                          >
+                            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Custom Providers */}
+              {customProviders.map(provider => {
+                const config = apiKeys[provider.id] || { enabled: false, key: '' };
+                const showKey = showKeys[provider.id] || false;
+
+                return (
+                  <div key={provider.id} className="glass border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-500 rounded-xl flex items-center justify-center text-2xl shadow-lg">
+                          🔧
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white">{provider.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-white/60">Кастомный</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleProvider(provider.id)}
+                          className={`relative w-12 h-6 rounded-full transition-colors ${
+                            config.enabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-white/20'
+                          }`}
+                        >
+                          <motion.div
+                            animate={{ x: config.enabled ? 24 : 0 }}
+                            className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md"
+                          />
+                        </button>
+                        <button
+                          onClick={() => removeCustomProvider(provider.id)}
+                          className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {config.enabled && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                      >
+                        <div className="relative">
+                          <input
+                            type={showKey ? 'text' : 'password'}
+                            value={config.key}
+                            onChange={(e) => updateApiKey(provider.id, e.target.value)}
+                            placeholder="Введите API ключ..."
+                            className="w-full px-4 py-3 pr-12 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-mono focus:border-indigo-500 outline-none transition-colors"
+                          />
+                          <button
+                            onClick={() => setShowKeys(prev => ({ ...prev, [provider.id]: !showKey }))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors"
+                          >
+                            {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Add Custom Provider */}
+              <button
+                onClick={addCustomProvider}
+                className="w-full glass border border-dashed border-slate-300 dark:border-white/20 rounded-2xl p-6 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-white/60 hover:text-indigo-600 dark:hover:text-indigo-400"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="font-semibold">Добавить кастомный провайдер</span>
+              </button>
+            </motion.div>
+          )}
+
+          {activeTab === 'appearance' && (
+            <motion.div
+              key="appearance"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-4"
+            >
+              {/* Dark Mode */}
+              <div className="glass border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {darkMode ? <Moon className="w-5 h-5 text-indigo-600" /> : <Sun className="w-5 h-5 text-amber-500" />}
+                    <div>
+                      <div className="font-bold text-slate-900 dark:text-white">Темная тема</div>
+                      <div className="text-xs text-slate-500 dark:text-white/60">
+                        {darkMode ? 'Включена' : 'Выключена'}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setDarkMode(!darkMode)}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${
+                      darkMode ? 'bg-indigo-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <motion.div
+                      animate={{ x: darkMode ? 24 : 0 }}
+                      className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Theme Preview */}
+              <div className="glass border border-slate-200 dark:border-white/10 rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Предпросмотр темы</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-white border border-slate-200 rounded-xl">
+                    <div className="text-xs font-bold text-slate-400 mb-2">LIGHT</div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-slate-900 rounded" />
+                      <div className="h-2 bg-slate-300 rounded w-3/4" />
+                      <div className="h-2 bg-slate-200 rounded w-1/2" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-xl">
+                    <div className="text-xs font-bold text-neutral-500 mb-2">DARK</div>
+                    <div className="space-y-2">
+                      <div className="h-3 bg-white rounded" />
+                      <div className="h-2 bg-neutral-400 rounded w-3/4" />
+                      <div className="h-2 bg-neutral-600 rounded w-1/2" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
-   );
+  );
 };
 
 export const ServiceCard = ({ icon: Icon, config, color, onClick }: any) => {
