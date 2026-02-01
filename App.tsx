@@ -269,8 +269,11 @@ const App: React.FC = () => {
     if (!editingPost) return;
     setEditingPost(null);
     const newPostId = Date.now().toString();
+    if (!(blob instanceof Blob)) {
+      console.error('Invalid blob type');
+      return;
+    }
     const reader = new FileReader();
-    reader.readAsDataURL(blob);
     reader.onloadend = () => {
          const base64data = reader.result as string;
          const newPost: FeedPost = {
