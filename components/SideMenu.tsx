@@ -4,8 +4,9 @@
 */
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Film, Users, Clock, Settings, Puzzle, Github, LogOut, ChevronRight } from 'lucide-react';
+import { X, Film, Users, Clock, Settings, Puzzle, Github, LogOut, ChevronRight, Key } from 'lucide-react';
 import { AppView } from '../types';
+import EnhancedSettingsDrawer from './EnhancedSettingsDrawer';
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -24,6 +25,13 @@ const MENU_ITEMS = [
 ];
 
 const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, currentView, onNavigate, onOpenKeySelector }) => {
+  const [showEnhancedSettings, setShowEnhancedSettings] = React.useState(false);
+
+  const handleAPISettingsClick = () => {
+    onClose();
+    setShowEnhancedSettings(true);
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -34,78 +42,85 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, currentView, onNav
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
           />
 
-          {/* Drawer */}
+          {/* Menu */}
           <motion.div
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed top-0 left-0 bottom-0 z-[70] w-72 bg-slate-50 dark:bg-[#111] border-r border-slate-200 dark:border-white/10 shadow-2xl flex flex-col"
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed left-0 top-0 h-full w-80 bg-white dark:bg-neutral-900 shadow-2xl z-[101] flex flex-col"
           >
             {/* Header */}
-            <div className="p-6 pb-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                  <Film className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                    <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Cameo</h2>
-                    <p className="text-[10px] text-slate-500 font-medium">Studio v1.2</p>
-                </div>
-              </div>
-              <button 
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-neutral-800">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Меню</h2>
+              <button
                 onClick={onClose}
-                className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-slate-500" />
+                <X className="w-5 h-5 text-slate-600 dark:text-neutral-400" />
               </button>
             </div>
 
-            {/* Menu Items */}
-            <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+            {/* Navigation */}
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+              {/* API Settings - First item */}
+              <button
+                onClick={handleAPISettingsClick}
+                className="w-full flex items-center gap-3 px-4 py-3 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors group"
+              >
+                <Key className="w-5 h-5" />
+                <span className="flex-1 text-left font-medium">API Settings</span>
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              {/* Regular menu items */}
               {MENU_ITEMS.map((item) => {
-                const Icon = item.icon;
                 const isActive = currentView === item.id;
                 return (
                   <button
                     key={item.id}
-                    onClick={() => { onNavigate(item.id); onClose(); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                      isActive 
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/5'
+                    onClick={() => {
+                      onNavigate(item.id);
+                      onClose();
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors group ${
+                      isActive
+                        ? 'bg-slate-100 dark:bg-neutral-800 text-slate-900 dark:text-white'
+                        : 'text-slate-600 dark:text-neutral-400 hover:bg-slate-50 dark:hover:bg-neutral-800/50'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'}`} />
-                    <span className="text-sm font-bold tracking-wide">{item.label}</span>
-                    {isActive && <ChevronRight className="w-4 h-4 ml-auto opacity-50" />}
+                    <item.icon className="w-5 h-5" />
+                    <span className="flex-1 text-left font-medium">{item.label}</span>
+                    {isActive && (
+                      <div className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+                    )}
                   </button>
                 );
               })}
-            </div>
+            </nav>
 
             {/* Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-black/20">
-                <button 
-                    onClick={() => { onOpenKeySelector(); onClose(); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl hover:border-indigo-500/50 transition-colors group"
-                >
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                        <LogOut className="w-4 h-4 text-indigo-500" />
-                    </div>
-                    <div className="text-left">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-indigo-500 transition-colors">Аккаунт</p>
-                        <p className="text-xs font-semibold text-slate-900 dark:text-white">Сменить ключ</p>
-                    </div>
-                </button>
-                <div className="mt-4 text-center">
-                    <p className="text-[10px] text-slate-400 dark:text-slate-600 font-mono">Powered by Google Gemini</p>
-                </div>
+            <div className="p-4 border-t border-slate-200 dark:border-neutral-800">
+              <a
+                href="https://github.com/savorsem/krauz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-xl transition-colors"
+              >
+                <Github className="w-5 h-5" />
+                <span className="flex-1 text-left font-medium">GitHub</span>
+              </a>
             </div>
           </motion.div>
+
+          {/* Enhanced Settings Drawer */}
+          <EnhancedSettingsDrawer
+            isOpen={showEnhancedSettings}
+            onClose={() => setShowEnhancedSettings(false)}
+          />
         </>
       )}
     </AnimatePresence>
