@@ -5,6 +5,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import * as React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import ApiKeyDialog from './components/ApiKeyDialog';
 import BottomPromptBar from './components/BottomPromptBar';
 import VideoCard from './components/VideoCard';
@@ -573,6 +574,7 @@ const App: React.FC = () => {
             onProfilesChange={loadProfiles}
         />
       )}
+      <Analytics />
     </div>
   );
 };

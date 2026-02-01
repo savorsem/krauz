@@ -6,7 +6,7 @@ import {
   GoogleGenAI,
   VideoGenerationReferenceImage,
   VideoGenerationReferenceType,
-} from '@google/generative-ai';
+} from '@google/genai';
 
 // ================================
 // 🎯 MULTI-PROVIDER AI SERVICE
