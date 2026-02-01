@@ -513,15 +513,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Moon, Sun, Zap, Sparkles, Key, Eye, EyeOff, Plus, X, Check, AlertCircle, Trash2, Info, Lock, Shield, Palette } from 'lucide-react';
 import { VeoModel } from '../types';
 
-// API Provider configuration
-const API_PROVIDERS = [
-  { id: 'google_ai', name: 'Google AI', icon: '🤖', color: 'bg-blue-500' },
-  { id: 'openai', name: 'OpenAI', icon: '🧠', color: 'bg-green-500' },
-  { id: 'anthropic', name: 'Anthropic', icon: '💜', color: 'bg-purple-500' },
-  { id: 'replicate', name: 'Replicate', icon: '🎨', color: 'bg-pink-500' },
-  { id: 'stability_ai', name: 'Stability AI', icon: '⚡', color: 'bg-orange-500' },
-];
-
 // ================================
 // ⚙️ ENHANCED SETTINGS VIEW
 // Features: API Key Testing + Model Selection
